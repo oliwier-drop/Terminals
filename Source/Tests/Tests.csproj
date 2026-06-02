@@ -77,6 +77,9 @@
     <Reference Include="Moq">
       <HintPath>..\packages\Moq.4.2.1408.0717\lib\net40\Moq.dll</HintPath>
     </Reference>
+    <Reference Include="Renci.SshNet">
+      <HintPath>..\packages\SSH.NET.2016.1.0\lib\net40\Renci.SshNet.dll</HintPath>
+    </Reference>
     <Reference Include="MSTSCLib">
       <HintPath>..\..\Resources\Libraries\mstsc\MSTSCLib.dll</HintPath>
       <EmbedInteropTypes>True</EmbedInteropTypes>
@@ -158,6 +161,8 @@
     <Compile Include="FilePersisted\SearchEngineTest.cs" />
     <Compile Include="Configuration\FavoriteConfigurationElementTests.cs" />
     <Compile Include="Passwords\GuardedSecurityTests.cs" />
+    <Compile Include="SshNet\AnsiTerminalScreenTests.cs" />
+    <Compile Include="SshNet\SshNetConnectionInfoFactoryTests.cs" />
     <Compile Include="Putty\ArgumentBuilderSshTests.cs" />
     <Compile Include="Putty\PuttyArgumentBuilderTests.cs" />
     <Compile Include="Putty\PuttyRegistryTests.cs" />
@@ -247,6 +252,10 @@
     <ProjectReference Include="..\Terminals.Plugins.Putty\Terminals.Plugins.Putty.csproj">
       <Project>{449DC14A-7C3F-4BE5-BA39-4AFD1C5404E6}</Project>
       <Name>Terminals.Plugins.Putty</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Terminals.Plugins.SshNet\Terminals.Plugins.SshNet.csproj">
+      <Project>{5CE4A8CA-3D6B-41C0-9F53-4A4C298F7455}</Project>
+      <Name>Terminals.Plugins.SshNet</Name>
     </ProjectReference>
     <ProjectReference Include="..\Terminals.Plugins.Rdp\Terminals.Plugins.Rdp.csproj">
       <Project>{f0c60ed2-9a47-4364-af57-505bc3e953d5}</Project>

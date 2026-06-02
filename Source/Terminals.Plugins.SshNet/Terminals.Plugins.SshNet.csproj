@@ -46,9 +46,16 @@
       <Link>Properties\Common.AssemblyInfo.cs</Link>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="AnsiStyle.cs" />
+    <Compile Include="AnsiTerminalScreen.cs" />
     <Compile Include="SshNetConnection.cs" />
+    <Compile Include="SshNetConnectionInfoFactory.cs" />
     <Compile Include="SshNetConnectionPlugin.cs" />
+    <Compile Include="SshNetConnectionSetup.cs" />
     <Compile Include="SshNetOptionsConverter.cs" />
+    <Compile Include="SshNetSessionConfigurator.cs" />
+    <Compile Include="SshNetShellStreamHelper.cs" />
+    <Compile Include="SshTerminalControl.cs" />
     <Compile Include="TerminalsSshNetExport.cs" />
   </ItemGroup>
   <ItemGroup>
