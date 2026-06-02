@@ -1,7 +1,5 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System.Collections;
 using System.Drawing;
-using System.Reflection;
 using Terminals.Plugins.SshNet;
 
 namespace Tests.SshNet
@@ -37,6 +35,34 @@ namespace Tests.SshNet
         }
 
         [TestMethod]
+        public void Feed_DecPrivateModeAndOsc_DoesNotBreakPlainPrompt()
+        {
+            var screen = new AnsiTerminalScreen();
+            screen.Feed("\x1B]0;title\x07user@host:\x1B[?1049h\x1B[2J\x1B[?1049l$ ");
+
+            Assert.IsTrue(screen.RenderPlainTextForTest().Contains("user@host:"));
+            Assert.IsTrue(screen.RenderPlainTextForTest().Contains("$"));
+        }
+
+        [TestMethod]
+        public void Feed_TerminalWidth_WrapsAtColumnBoundary()
+        {
+            var screen = new AnsiTerminalScreen { TerminalWidth = 5 };
+            screen.Feed("123456");
+
+            Assert.AreEqual("12345\n6\n", screen.RenderPlainTextForTest());
+        }
+
+        [TestMethod]
+        public void Feed_TrailingBlankLines_AreTrimmedBelowCursor()
+        {
+            var screen = new AnsiTerminalScreen();
+            screen.Feed("prompt\n\n\n");
+
+            Assert.AreEqual("prompt\n", screen.RenderPlainTextForTest());
+        }
+
+        [TestMethod]
         public void Feed_SgrColor_AppliesAndResetsColors()
         {
             var screen = new AnsiTerminalScreen();
@@ -49,26 +75,11 @@ namespace Tests.SshNet
 
         private static void AssertCellStyle(AnsiTerminalScreen screen, int row, int column, Color foreColor, Color backColor, bool bold)
         {
-            object line = GetListItem(screen, "lines", row);
-            object cell = GetListItem(line, "cells", column);
-            object style = GetFieldValue(cell, "Style");
-
-            Assert.AreEqual(foreColor, GetFieldValue(style, "ForeColor"));
-            Assert.AreEqual(backColor, GetFieldValue(style, "BackColor"));
-            Assert.AreEqual(bold, GetFieldValue(style, "Bold"));
-        }
-
-        private static object GetListItem(object instance, string fieldName, int index)
-        {
-            var list = (IList)GetFieldValue(instance, fieldName);
-            return list[index];
-        }
-
-        private static object GetFieldValue(object instance, string fieldName)
-        {
-            FieldInfo field = instance.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.IsNotNull(field, "Field not found: " + fieldName);
-            return field.GetValue(instance);
+            AnsiStyle style;
+            Assert.IsTrue(screen.TryGetCellStyleForTest(row, column, out style));
+            Assert.AreEqual(foreColor, style.ForeColor);
+            Assert.AreEqual(backColor, style.BackColor);
+            Assert.AreEqual(bold, style.Bold);
         }
     }
 }

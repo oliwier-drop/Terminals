@@ -1,14 +1,27 @@
 using System;
 using System.Drawing;
+using System.Reflection;
+using System.Text;
 using System.Windows.Forms;
 
 namespace Terminals.Plugins.SshNet
 {
     internal class SshTerminalControl : RichTextBox
     {
+        private const int RenderIntervalMs = 50;
+        private const int ScrollbackExtraLines = 50;
+        private const int ResizeDebounceMs = 200;
+        private const int MaxColumns = 260;
+        private const int MaxRows = 100;
+
         private readonly Action<string> sendInput;
         private readonly AnsiTerminalScreen screen = new AnsiTerminalScreen();
+        private readonly StringBuilder pendingOutput = new StringBuilder();
+        private readonly object pendingLock = new object();
+        private readonly Timer renderTimer;
+        private readonly Timer resizeDebounceTimer;
         private bool renderDirty;
+        private bool pendingBeforeHandle;
 
         internal int Columns
         {
@@ -17,7 +30,7 @@ namespace Terminals.Plugins.SshNet
                 int charWidth = TextRenderer.MeasureText("W", this.Font).Width;
                 if (charWidth <= 0)
                     return 80;
-                return Math.Max(20, this.ClientSize.Width / charWidth);
+                return Math.Min(MaxColumns, Math.Max(20, this.ClientSize.Width / charWidth));
             }
         }
 
@@ -28,7 +41,7 @@ namespace Terminals.Plugins.SshNet
                 int charHeight = this.Font.Height;
                 if (charHeight <= 0)
                     return 24;
-                return Math.Max(8, this.ClientSize.Height / charHeight);
+                return Math.Min(MaxRows, Math.Max(8, this.ClientSize.Height / charHeight));
             }
         }
 
@@ -41,33 +54,173 @@ namespace Terminals.Plugins.SshNet
             this.BorderStyle = BorderStyle.None;
             this.BackColor = Color.Black;
             this.ForeColor = Color.Gainsboro;
-            this.Font = new Font(FontFamily.GenericMonospace, 10f, FontStyle.Regular);
+            this.Font = CreateTerminalFont();
             this.ReadOnly = true;
             this.HideSelection = false;
             this.Multiline = true;
             this.WordWrap = false;
             this.ScrollBars = RichTextBoxScrollBars.Both;
+            this.TabStop = true;
+            this.EnableDoubleBuffering();
+
+            this.renderTimer = new Timer { Interval = RenderIntervalMs };
+            this.renderTimer.Tick += this.OnRenderTimerTick;
+
+            this.resizeDebounceTimer = new Timer { Interval = ResizeDebounceMs };
+            this.resizeDebounceTimer.Tick += this.OnResizeDebounceTick;
+
             this.Resize += this.OnTerminalResize;
+            this.HandleCreated += this.OnHandleCreated;
+            this.GotFocus += this.OnGotFocus;
+            this.Click += this.OnClick;
         }
 
         internal void AppendAnsi(string text)
         {
-            if (string.IsNullOrEmpty(text))
+            if (string.IsNullOrEmpty(text) || this.IsDisposed)
+                return;
+
+            lock (this.pendingLock)
+            {
+                this.pendingOutput.Append(text);
+            }
+
+            this.ScheduleRender();
+        }
+
+        /// <summary>Queues ANSI text and paints immediately (connect banner, session end).</summary>
+        internal void AppendAnsiAndFlush(string text)
+        {
+            if (string.IsNullOrEmpty(text) || this.IsDisposed)
                 return;
 
             if (this.InvokeRequired)
             {
-                this.BeginInvoke(new Action<string>(this.AppendAnsi), text);
+                this.Invoke(new Action<string>(this.AppendAnsiAndFlush), text);
                 return;
             }
 
-            this.screen.Feed(text);
-            this.renderDirty = true;
+            lock (this.pendingLock)
+            {
+                this.pendingOutput.Append(text);
+            }
+
+            this.renderTimer.Stop();
+            this.DrainAndRender();
+        }
+
+        internal void FlushPendingOutput()
+        {
+            if (this.IsDisposed)
+                return;
 
             if (this.InvokeRequired)
-                this.BeginInvoke(new Action(this.RenderScreen));
-            else
-                this.RenderScreen();
+            {
+                this.Invoke(new Action(this.FlushPendingOutput));
+                return;
+            }
+
+            this.DrainAndRender();
+        }
+
+        internal void FocusTerminal()
+        {
+            if (this.IsDisposed)
+                return;
+
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke(new Action(this.FocusTerminal));
+                return;
+            }
+
+            this.Focus();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                this.renderTimer.Stop();
+                this.renderTimer.Dispose();
+                this.resizeDebounceTimer.Stop();
+                this.resizeDebounceTimer.Dispose();
+            }
+
+            base.Dispose(disposing);
+        }
+
+        private void OnHandleCreated(object sender, EventArgs e)
+        {
+            if (this.pendingBeforeHandle)
+            {
+                this.pendingBeforeHandle = false;
+                this.ScheduleRender();
+            }
+        }
+
+        private void OnGotFocus(object sender, EventArgs e)
+        {
+            this.ScrollToCaret();
+        }
+
+        private void OnClick(object sender, EventArgs e)
+        {
+            this.Focus();
+        }
+
+        private void ScheduleRender()
+        {
+            if (!this.IsHandleCreated)
+            {
+                this.pendingBeforeHandle = true;
+                return;
+            }
+
+            if (!this.renderTimer.Enabled)
+            {
+                if (this.InvokeRequired)
+                    this.BeginInvoke(new Action(this.StartRenderTimer));
+                else
+                    this.StartRenderTimer();
+            }
+        }
+
+        private void StartRenderTimer()
+        {
+            if (!this.IsDisposed)
+                this.renderTimer.Start();
+        }
+
+        private void OnRenderTimerTick(object sender, EventArgs e)
+        {
+            this.DrainAndRender();
+        }
+
+        private void DrainAndRender()
+        {
+            string chunk;
+            lock (this.pendingLock)
+            {
+                if (this.pendingOutput.Length == 0)
+                {
+                    this.renderTimer.Stop();
+                    return;
+                }
+
+                chunk = this.pendingOutput.ToString();
+                this.pendingOutput.Length = 0;
+            }
+
+            this.SyncScreenGeometry();
+            this.screen.Feed(chunk);
+            this.renderDirty = true;
+            this.RenderScreen();
+        }
+
+        internal void InvalidateRenderCache()
+        {
+            this.screen.ResetRenderCache();
         }
 
         private void RenderScreen()
@@ -76,16 +229,54 @@ namespace Terminals.Plugins.SshNet
                 return;
 
             this.renderDirty = false;
-            this.screen.RenderTo(this, this.Font);
-
-            if (this.renderDirty)
-                this.BeginInvoke(new Action(this.RenderScreen));
+            int maxLines = Math.Min(500, this.Rows + ScrollbackExtraLines);
+            int caretIndex;
+            this.screen.RenderPlainTo(this, maxLines, out caretIndex);
         }
 
         private void OnTerminalResize(object sender, EventArgs e)
         {
+            this.resizeDebounceTimer.Stop();
+            this.resizeDebounceTimer.Start();
+        }
+
+        private void OnResizeDebounceTick(object sender, EventArgs e)
+        {
+            this.resizeDebounceTimer.Stop();
+            this.SyncScreenGeometry();
+            this.screen.ResetRenderCache();
+            this.renderDirty = true;
+            this.RenderScreen();
             if (this.TerminalResized != null)
                 this.TerminalResized(this, EventArgs.Empty);
+        }
+
+        private static Font CreateTerminalFont()
+        {
+            try
+            {
+                return new Font("Consolas", 10f, FontStyle.Regular);
+            }
+            catch
+            {
+                return new Font(FontFamily.GenericMonospace, 10f, FontStyle.Regular);
+            }
+        }
+
+        private void SyncScreenGeometry()
+        {
+            this.screen.TerminalWidth = Math.Max(20, this.Columns);
+            this.screen.TerminalHeight = Math.Max(8, this.Rows);
+        }
+
+        private void EnableDoubleBuffering()
+        {
+            typeof(Control).InvokeMember(
+                "DoubleBuffered",
+                BindingFlags.SetProperty | BindingFlags.Instance | BindingFlags.NonPublic,
+                null,
+                this,
+                new object[] { true });
         }
 
         protected override bool IsInputKey(Keys keyData)
@@ -97,6 +288,8 @@ namespace Terminals.Plugins.SshNet
                 case Keys.Up:
                 case Keys.Down:
                 case Keys.Tab:
+                case Keys.Back:
+                case Keys.Return:
                     return true;
                 default:
                     return base.IsInputKey(keyData);
@@ -105,15 +298,15 @@ namespace Terminals.Plugins.SshNet
 
         protected override void OnKeyPress(KeyPressEventArgs e)
         {
-            base.OnKeyPress(e);
+            if (char.IsControl(e.KeyChar))
+                return;
+
             this.sendInput(e.KeyChar.ToString());
             e.Handled = true;
         }
 
         protected override void OnKeyDown(KeyEventArgs e)
         {
-            base.OnKeyDown(e);
-
             string controlSequence = null;
             switch (e.KeyCode)
             {
@@ -138,6 +331,9 @@ namespace Terminals.Plugins.SshNet
                 case Keys.Down:
                     controlSequence = "\x1B[B";
                     break;
+                case Keys.Escape:
+                    controlSequence = "\x1B";
+                    break;
             }
 
             if (!string.IsNullOrEmpty(controlSequence))
@@ -146,6 +342,8 @@ namespace Terminals.Plugins.SshNet
                 e.SuppressKeyPress = true;
                 e.Handled = true;
             }
+
+            base.OnKeyDown(e);
         }
     }
 }

@@ -27,5 +27,12 @@ namespace Terminals.Plugins.SshNet
                 Bold = this.Bold
             };
         }
+
+        internal bool Matches(AnsiStyle other)
+        {
+            return this.Bold == other.Bold
+                && this.ForeColor.ToArgb() == other.ForeColor.ToArgb()
+                && this.BackColor.ToArgb() == other.BackColor.ToArgb();
+        }
     }
 }
