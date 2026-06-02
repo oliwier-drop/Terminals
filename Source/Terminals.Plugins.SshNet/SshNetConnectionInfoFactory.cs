@@ -1,7 +1,8 @@
 using System;
-using System.Collections.Generic;
+using System.Windows.Forms;
 using Renci.SshNet;
 using Renci.SshNet.Compression;
+using Terminals.Common.Configuration;
 using Terminals.Data;
 using Terminals.Plugins.Putty;
 
@@ -18,6 +19,8 @@ namespace Terminals.Plugins.SshNet
             int port,
             IGuardedSecurity credentials,
             SshOptions sshOptions,
+            KeysSection sshKeys,
+            IWin32Window owner,
             out SshNetConnectionSetup setup,
             out string error)
         {
@@ -33,13 +36,11 @@ namespace Terminals.Plugins.SshNet
             string userName = credentials.UserName ?? string.Empty;
             string password = credentials.Password;
 
-            var methods = new List<AuthenticationMethod>();
-            if (!string.IsNullOrEmpty(password))
-                methods.Add(new PasswordAuthenticationMethod(userName, password));
-            else
-                methods.Add(new NoneAuthenticationMethod(userName));
+            AuthenticationMethod[] methods;
+            if (!SshNetAuthenticationBuilder.TryBuildMethods(userName, password, sshOptions, sshKeys, owner, out methods, out error))
+                return false;
 
-            var connectionInfo = new ConnectionInfo(host, port, userName, methods.ToArray());
+            var connectionInfo = new ConnectionInfo(host, port, userName, methods);
             ApplyCompression(connectionInfo, sshOptions != null && sshOptions.EnableCompression);
 
             bool x11 = sshOptions != null && sshOptions.X11Forwarding;
@@ -50,6 +51,8 @@ namespace Terminals.Plugins.SshNet
 
             setup = new SshNetConnectionSetup(
                 connectionInfo,
+                host,
+                port,
                 sshOptions,
                 sshOptions != null && sshOptions.EnableCompression,
                 x11,

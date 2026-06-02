@@ -43,7 +43,21 @@ namespace Terminals.Plugins.Putty
 
         private void KeysButton_Click(object sender, System.EventArgs e)
         {
+            this.OnKeysButtonClick();
+        }
+
+        protected virtual void OnKeysButtonClick()
+        {
             Executables.LaunchPageant();
+        }
+
+        /// <summary>Hides PuTTY-only options when hosted by the SSH.NET plugin.</summary>
+        public void ConfigureForSshNetPlugin()
+        {
+            this.checkBoxEnablePagentAuthentication.Visible = false;
+            this.checkBoxEnablePagentForwarding.Visible = false;
+            this.checkBoxX11Forwarding.Visible = false;
+            this.keysButton.Text = "SSH key store";
         }
     }
 }

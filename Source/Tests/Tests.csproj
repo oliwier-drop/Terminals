@@ -78,7 +78,7 @@
       <HintPath>..\packages\Moq.4.2.1408.0717\lib\net40\Moq.dll</HintPath>
     </Reference>
     <Reference Include="Renci.SshNet">
-      <HintPath>..\packages\SSH.NET.2016.1.0\lib\net40\Renci.SshNet.dll</HintPath>
+      <HintPath>..\packages\SSH.NET.2020.0.2\lib\net40\Renci.SshNet.dll</HintPath>
     </Reference>
     <Reference Include="MSTSCLib">
       <HintPath>..\..\Resources\Libraries\mstsc\MSTSCLib.dll</HintPath>
@@ -162,7 +162,9 @@
     <Compile Include="Configuration\FavoriteConfigurationElementTests.cs" />
     <Compile Include="Passwords\GuardedSecurityTests.cs" />
     <Compile Include="SshNet\AnsiTerminalScreenTests.cs" />
+    <Compile Include="SshNet\SshKnownHostsStoreTests.cs" />
     <Compile Include="SshNet\SshNetConnectionInfoFactoryTests.cs" />
+    <Compile Include="SshNet\TestKeyMaterial.cs" />
     <Compile Include="Putty\ArgumentBuilderSshTests.cs" />
     <Compile Include="Putty\PuttyArgumentBuilderTests.cs" />
     <Compile Include="Putty\PuttyRegistryTests.cs" />

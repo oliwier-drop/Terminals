@@ -14,6 +14,7 @@ using Terminals.Data;
 using Terminals.Integration.Export;
 using Tests.Helpers;
 using Terminals.Plugins.Putty;
+using Terminals.Plugins.SshNet;
 
 namespace Tests.Connections
 {
@@ -40,7 +41,7 @@ namespace Tests.Connections
         public void GetAvailableProtocols_ReturnsAll()
         {
             int knownProtocols = GetUniqueProtocols().Count();
-            Assert.AreEqual(8, knownProtocols, "All other test in this SUT operate on wrong data.");
+            Assert.AreEqual(9, knownProtocols, "All other test in this SUT operate on wrong data.");
         }
 
         [TestMethod]
@@ -302,7 +303,8 @@ namespace Tests.Connections
                 "Terminals.Integration.Export.TerminalsIcaExport",
                 "Terminals.Plugins.Putty.TerminalsSshExport",
                 "Terminals.Plugins.Putty.TerminalsTelnetExport",
-                "Terminals.Integration.Export.TerminalsVmrcExport"
+                "Terminals.Integration.Export.TerminalsVmrcExport",
+                "Terminals.Plugins.SshNet.TerminalsSshNetExport"
             };
 
             ITerminalsOptionsExport[] exporters = this.connectionManager.GetTerminalsOptionsExporters();
@@ -315,6 +317,7 @@ namespace Tests.Connections
         {
             IEnumerable<Type> optionTypes = this.connectionManager.GetAllKnownProtocolOptionTypes()
                 .Distinct();
+            // SSH and SSH.NET share SshOptions; protocol names are still distinct (9 protocols).
             Assert.AreEqual(8, optionTypes.Count(), "To be able serialize all known protocols we have to list all.");
         }
         
@@ -338,7 +341,11 @@ namespace Tests.Connections
                 new Tuple<int, IEnumerable<string>>(TelnetConnectionPlugin.TelnetPort, 
                     new List<string>() { "Terminals.Plugins.Putty.TelnetConnectionPlugin"}),
                 new Tuple<int, IEnumerable<string>>(SshConnectionPlugin.SSHPort, 
-                    new List<string>() { "Terminals.Plugins.Putty.SshConnectionPlugin"}),
+                    new List<string>()
+                    {
+                        "Terminals.Plugins.Putty.SshConnectionPlugin",
+                        "Terminals.Plugins.SshNet.SshNetConnectionPlugin"
+                    }),
                 new Tuple<int, IEnumerable<string>>(KnownConnectionConstants.HTTPPort, 
                     new List<string>() { "Terminals.Connections.Web.HttpConnectionPlugin"}),
                 new Tuple<int, IEnumerable<string>>(HttpsConnectionPlugin.HTTPSPort, 

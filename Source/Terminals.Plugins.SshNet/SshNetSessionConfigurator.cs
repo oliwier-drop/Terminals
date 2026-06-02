@@ -1,23 +1,13 @@
 using System;
 using Renci.SshNet;
-using Renci.SshNet.Common;
 
 namespace Terminals.Plugins.SshNet
 {
     /// <summary>
-    /// Applies SSH session options after the client is connected (step 7 features).
+    /// Applies SSH session options after the client is connected.
     /// </summary>
     internal static class SshNetSessionConfigurator
     {
-        internal static void AttachHostKeyHandler(SshClient client)
-        {
-            client.HostKeyReceived += (sender, e) =>
-            {
-                // Step 7: replace with trusted host key store and user prompt.
-                e.CanTrust = true;
-            };
-        }
-
         internal static void ApplyPostConnectFeatures(SshClient client, SshNetConnectionSetup setup)
         {
             if (setup == null)
@@ -27,13 +17,16 @@ namespace Terminals.Plugins.SshNet
                 Logging.Info("SSH.NET verbose logging enabled for session.");
 
             if (setup.EnablePagentAuthentication)
-                Logging.Info("SSH.NET: Pageant authentication is not implemented yet (step 7).");
+                Logging.Info("SSH.NET: Pageant authentication is not supported. Use KeyTag, KeyFile, or password authentication.");
 
             if (setup.EnablePagentForwarding)
-                Logging.Info("SSH.NET: agent forwarding is not implemented yet (step 7).");
+                Logging.Info("SSH.NET: SSH agent forwarding is not implemented for this plugin.");
 
             if (setup.X11Forwarding)
-                Logging.Info("SSH.NET: X11 forwarding is not implemented yet (step 7).");
+                Logging.Info("SSH.NET: X11 forwarding is not implemented for this plugin.");
+
+            if (!string.IsNullOrEmpty(setup.SessionName))
+                Logging.Info("SSH.NET: PuTTY session name '" + setup.SessionName + "' is not used by the SSH.NET plugin.");
         }
 
         internal static bool TryResizePty(ShellStream shellStream, uint columns, uint rows)

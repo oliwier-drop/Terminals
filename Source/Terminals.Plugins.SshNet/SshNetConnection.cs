@@ -5,23 +5,28 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using Renci.SshNet;
 using Renci.SshNet.Common;
+using Terminals.Common.Configuration;
+using Terminals.Configuration;
 using Terminals.Connections;
 using Terminals.Data;
 using Terminals.Plugins.Putty;
 
 namespace Terminals.Plugins.SshNet
 {
-    internal class SshNetConnection : Connection, IFocusable, IHandleKeyboardInput
+    internal class SshNetConnection : Connection, IFocusable, IHandleKeyboardInput, ISettingsConsumer
     {
         private readonly SshTerminalControl terminalControl;
         private readonly Encoding streamEncoding = Encoding.UTF8;
         private readonly object writeLock = new object();
+        private readonly SshKnownHostsStore knownHosts = SshKnownHostsStore.CreateDefault();
 
         private SshClient sshClient;
         private ShellStream shellStream;
         private SshNetConnectionSetup connectionSetup;
         private CancellationTokenSource readCancellation;
         private Task readTask;
+
+        public IConnectionSettings Settings { get; set; }
 
         public bool GrabInput { get; set; }
 
@@ -48,6 +53,7 @@ namespace Terminals.Plugins.SshNet
             {
                 var sshOptions = this.Favorite.ProtocolProperties as SshOptions;
                 IGuardedSecurity credentials = this.ResolveFavoriteCredentials();
+                KeysSection sshKeys = this.Settings != null ? this.Settings.SSHKeys : null;
 
                 string error;
                 if (!SshNetConnectionInfoFactory.TryCreate(
@@ -55,6 +61,8 @@ namespace Terminals.Plugins.SshNet
                     this.Favorite.Port,
                     credentials,
                     sshOptions,
+                    sshKeys,
+                    this.FindForm(),
                     out this.connectionSetup,
                     out error))
                 {
@@ -63,7 +71,13 @@ namespace Terminals.Plugins.SshNet
                 }
 
                 this.sshClient = new SshClient(this.connectionSetup.ConnectionInfo);
-                SshNetSessionConfigurator.AttachHostKeyHandler(this.sshClient);
+                var hostKeyVerifier = new SshHostKeyVerifier(
+                    this.connectionSetup.Host,
+                    this.connectionSetup.Port,
+                    this.knownHosts,
+                    this.FindForm());
+                hostKeyVerifier.Attach(this.sshClient);
+
                 this.sshClient.ErrorOccurred += this.SshClientOnErrorOccurred;
                 this.sshClient.Connect();
 

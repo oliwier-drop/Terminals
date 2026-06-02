@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
+using Terminals.Common.Configuration;
 using Terminals.Common.Connections;
 using Terminals.Connections;
 using Terminals.Data;
@@ -25,12 +26,12 @@ namespace Terminals.Plugins.SshNet
 
         public ProtocolOptions CreateOptions()
         {
-            return new SshOptions();
+            return new SshOptions { AuthMethod = AuthMethod.Password };
         }
 
         public Control[] CreateOptionsControls()
         {
-            return new Control[] { new SshOptionsControl { Name = "SSH.NET" } };
+            return new Control[] { new SshNetOptionsControl { Name = "SSH.NET" } };
         }
 
         public IOptionsConverter CreatOptionsConverter()

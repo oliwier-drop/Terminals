@@ -120,7 +120,18 @@ namespace Terminals.Connections
         {
             try
             {
-                return Directory.GetFiles(pluginDirectory, "Terminals.Plugins.*.dll");
+                string[] pluginAssemblies = Directory.GetFiles(pluginDirectory, "Terminals.Plugins.*.dll");
+                if (pluginAssemblies.Length <= 1)
+                    return pluginAssemblies;
+
+                // A plugin project may copy dependency plugin assemblies into its output folder.
+                string folderName = new DirectoryInfo(pluginDirectory).Name;
+                string[] matchingFolder = pluginAssemblies
+                    .Where(path => Path.GetFileNameWithoutExtension(path)
+                        .IndexOf(folderName, StringComparison.OrdinalIgnoreCase) >= 0)
+                    .ToArray();
+
+                return matchingFolder.Length > 0 ? matchingFolder : new[] { pluginAssemblies[0] };
             }
             catch (Exception exception)
             {

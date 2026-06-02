@@ -10,6 +10,8 @@ namespace Terminals.Plugins.SshNet
     {
         internal SshNetConnectionSetup(
             ConnectionInfo connectionInfo,
+            string host,
+            int port,
             SshOptions sshOptions,
             bool enableCompression,
             bool x11Forwarding,
@@ -19,6 +21,8 @@ namespace Terminals.Plugins.SshNet
             string sessionName)
         {
             this.ConnectionInfo = connectionInfo;
+            this.Host = host;
+            this.Port = port;
             this.SshOptions = sshOptions;
             this.EnableCompression = enableCompression;
             this.X11Forwarding = x11Forwarding;
@@ -29,6 +33,10 @@ namespace Terminals.Plugins.SshNet
         }
 
         public ConnectionInfo ConnectionInfo { get; private set; }
+
+        public string Host { get; private set; }
+
+        public int Port { get; private set; }
 
         public SshOptions SshOptions { get; private set; }
 

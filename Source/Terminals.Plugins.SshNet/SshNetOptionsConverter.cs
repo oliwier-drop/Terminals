@@ -14,6 +14,9 @@ namespace Terminals.Plugins.SshNet
             options.X11Forwarding = source.SshX11Forwarding;
             options.EnableCompression = source.SshEnableCompression;
             options.SshVersion = (SshVersion)source.SshVersion;
+            options.AuthMethod = source.AuthMethod;
+            options.KeyTag = source.KeyTag;
+            options.KeyFile = source.SSHKeyFile;
         }
 
         protected override void ToConfigFavorite(FavoriteConfigurationElement destination, SshOptions options)
@@ -25,6 +28,9 @@ namespace Terminals.Plugins.SshNet
             destination.SshX11Forwarding = options.X11Forwarding;
             destination.SshEnableCompression = options.EnableCompression;
             destination.SshVersion = (byte)options.SshVersion;
+            destination.AuthMethod = options.AuthMethod;
+            destination.KeyTag = options.KeyTag ?? string.Empty;
+            destination.SSHKeyFile = options.KeyFile ?? string.Empty;
         }
     }
 }

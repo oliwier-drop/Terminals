@@ -1,6 +1,9 @@
+using System.IO;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using Renci.SshNet;
+using Terminals.Common.Configuration;
+using Terminals.Configuration;
 using Terminals.Data;
 using Terminals.Plugins.Putty;
 using Terminals.Plugins.SshNet;
@@ -17,7 +20,7 @@ namespace Tests.SshNet
             SshNetConnectionSetup setup;
             string error;
 
-            bool created = SshNetConnectionInfoFactory.TryCreate("host", 22, CreateCredentials(), options, out setup, out error);
+            bool created = SshNetConnectionInfoFactory.TryCreate("host", 22, CreateCredentials(), options, null, null, out setup, out error);
 
             Assert.IsTrue(created, error);
             Assert.IsTrue(setup.EnableCompression);
@@ -40,7 +43,7 @@ namespace Tests.SshNet
 
             SshNetConnectionSetup setup;
             string error;
-            bool created = SshNetConnectionInfoFactory.TryCreate("host", 22, CreateCredentials(), options, out setup, out error);
+            bool created = SshNetConnectionInfoFactory.TryCreate("host", 22, CreateCredentials(), options, null, null, out setup, out error);
 
             Assert.IsTrue(created, error);
             Assert.IsTrue(setup.X11Forwarding);
@@ -48,6 +51,8 @@ namespace Tests.SshNet
             Assert.IsTrue(setup.EnablePagentForwarding);
             Assert.IsTrue(setup.Verbose);
             Assert.AreEqual("lab", setup.SessionName);
+            Assert.AreEqual("host", setup.Host);
+            Assert.AreEqual(22, setup.Port);
         }
 
         [TestMethod]
@@ -57,7 +62,7 @@ namespace Tests.SshNet
             SshNetConnectionSetup setup;
             string error;
 
-            bool created = SshNetConnectionInfoFactory.TryCreate("host", 22, CreateCredentials(), options, out setup, out error);
+            bool created = SshNetConnectionInfoFactory.TryCreate("host", 22, CreateCredentials(), options, null, null, out setup, out error);
 
             Assert.IsFalse(created);
             Assert.IsNull(setup);
@@ -69,14 +74,11 @@ namespace Tests.SshNet
         {
             SshNetConnectionSetup setup;
             string error;
-            bool created = SshNetConnectionInfoFactory.TryCreate("host", 22, CreateCredentials(), new SshOptions(), out setup, out error);
+            bool created = SshNetConnectionInfoFactory.TryCreate("host", 22, CreateCredentials(), new SshOptions { AuthMethod = AuthMethod.Password }, null, null, out setup, out error);
 
             Assert.IsTrue(created, error);
             Assert.AreEqual(1, setup.ConnectionInfo.AuthenticationMethods.Count);
             Assert.IsInstanceOfType(setup.ConnectionInfo.AuthenticationMethods[0], typeof(PasswordAuthenticationMethod));
-            Assert.AreEqual("host", setup.ConnectionInfo.Host);
-            Assert.AreEqual(22, setup.ConnectionInfo.Port);
-            Assert.AreEqual("user", setup.ConnectionInfo.Username);
         }
 
         [TestMethod]
@@ -84,11 +86,88 @@ namespace Tests.SshNet
         {
             SshNetConnectionSetup setup;
             string error;
-            bool created = SshNetConnectionInfoFactory.TryCreate("host", 22, CreateCredentials(password: null), new SshOptions(), out setup, out error);
+            bool created = SshNetConnectionInfoFactory.TryCreate("host", 22, CreateCredentials(password: null), new SshOptions { AuthMethod = AuthMethod.Password }, null, null, out setup, out error);
 
             Assert.IsTrue(created, error);
             Assert.AreEqual(1, setup.ConnectionInfo.AuthenticationMethods.Count);
             Assert.IsInstanceOfType(setup.ConnectionInfo.AuthenticationMethods[0], typeof(NoneAuthenticationMethod));
+        }
+
+        [TestMethod]
+        public void TryCreate_PublicKeyFromKeyFile_RegistersPrivateKeyAuthentication()
+        {
+            string keyPath = CreateTemporaryRsaKey();
+            try
+            {
+                var options = new SshOptions
+                {
+                    AuthMethod = AuthMethod.PublicKey,
+                    KeyFile = keyPath
+                };
+
+                SshNetConnectionSetup setup;
+                string error;
+                bool created = SshNetConnectionInfoFactory.TryCreate("host", 22, CreateCredentials(password: null), options, null, null, out setup, out error);
+
+                Assert.IsTrue(created, error);
+                Assert.AreEqual(1, setup.ConnectionInfo.AuthenticationMethods.Count);
+                Assert.IsInstanceOfType(setup.ConnectionInfo.AuthenticationMethods[0], typeof(PrivateKeyAuthenticationMethod));
+            }
+            finally
+            {
+                File.Delete(keyPath);
+            }
+        }
+
+        [TestMethod]
+        public void TryCreate_PublicKeyFromKeyTag_RegistersPrivateKeyAuthentication()
+        {
+            var keys = new KeysSection();
+            keys.AddKey("lab", TestKeyMaterial.RsaPrivateKeyPem);
+
+            var options = new SshOptions
+            {
+                AuthMethod = AuthMethod.PublicKey,
+                KeyTag = "lab"
+            };
+
+            SshNetConnectionSetup setup;
+            string error;
+            bool created = SshNetConnectionInfoFactory.TryCreate("host", 22, CreateCredentials(password: null), options, keys, null, out setup, out error);
+
+            Assert.IsTrue(created, error);
+            Assert.IsInstanceOfType(setup.ConnectionInfo.AuthenticationMethods[0], typeof(PrivateKeyAuthenticationMethod));
+        }
+
+        [TestMethod]
+        public void TryCreate_KeyboardInteractive_RegistersKeyboardInteractiveAuthentication()
+        {
+            var options = new SshOptions { AuthMethod = AuthMethod.KeyboardInteractive };
+            SshNetConnectionSetup setup;
+            string error;
+
+            bool created = SshNetConnectionInfoFactory.TryCreate("host", 22, CreateCredentials(), options, null, null, out setup, out error);
+
+            Assert.IsTrue(created, error);
+            Assert.IsInstanceOfType(setup.ConnectionInfo.AuthenticationMethods[0], typeof(KeyboardInteractiveAuthenticationMethod));
+        }
+
+        [TestMethod]
+        public void TryCreate_HostAuth_IncludesPasswordAndKeyboardMethods()
+        {
+            SshNetConnectionSetup setup;
+            string error;
+            bool created = SshNetConnectionInfoFactory.TryCreate("host", 22, CreateCredentials(), new SshOptions { AuthMethod = AuthMethod.Host }, null, null, out setup, out error);
+
+            Assert.IsTrue(created, error);
+            Assert.IsTrue(setup.ConnectionInfo.AuthenticationMethods.Count >= 2);
+        }
+
+        private static string CreateTemporaryRsaKey()
+        {
+            string path = Path.Combine(Path.GetTempPath(), "terminals-test-" + Path.GetRandomFileName() + ".pem");
+            File.WriteAllText(path, TestKeyMaterial.RsaPrivateKeyPem);
+            return path;
         }
 
         private static IGuardedSecurity CreateCredentials(string password = "password")

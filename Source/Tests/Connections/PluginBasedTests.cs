@@ -17,6 +17,7 @@ namespace Tests.Connections
     [DeploymentItem(VMRC_PLUGIN, VMRC_TARGET)]
     [DeploymentItem(WEB_PLUGIN, WEB_TARGET)]
     [DeploymentItem(RDP_PLUGIN, RDP_TARGET)]
+    [DeploymentItem(SSHNET_PLUGIN, SSHNET_TARGET)]
     [TestClass]
     public class PluginBasedTests
     {
@@ -44,6 +45,10 @@ namespace Tests.Connections
         
         private const string RDP_TARGET = @"Plugins\Rdp";
 
+        private const string SSHNET_PLUGIN = "Terminals.Plugins.SshNet.dll";
+
+        private const string SSHNET_TARGET = @"Plugins\SshNet";
+
         public TestContext TestContext { get; set; }
 
         protected string[] CreateAllAvailablePlugins()
@@ -57,6 +62,7 @@ namespace Tests.Connections
                 Path.Combine(deploymentDirectory, VMRC_TARGET, VMRC_PLUGIN),
                 Path.Combine(deploymentDirectory, WEB_TARGET, WEB_PLUGIN),
                 Path.Combine(deploymentDirectory, RDP_TARGET, RDP_PLUGIN),
+                Path.Combine(deploymentDirectory, SSHNET_TARGET, SSHNET_PLUGIN),
             };
         }
     }
