@@ -19,6 +19,7 @@ namespace Tests.Connections
                 new Tuple<string, string>("ICA", "Terminals.Plugins.Ica"),
                 new Tuple<string, string>("VMRC", "Terminals.Plugins.Vmrc"),
                 new Tuple<string, string>("Putty", "Terminals.Plugins.Putty"),
+                new Tuple<string, string>("SSH.NET", "Terminals.Plugins.SshNet"),
                 new Tuple<string, string>("HTTP and HTTPS", "Terminals.Plugins.Web"),
                 new Tuple<string, string>("RDP", "Terminals.Plugins.Rdp")
             };
