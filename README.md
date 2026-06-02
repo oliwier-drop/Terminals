@@ -10,7 +10,14 @@ Work in progress: the `Terminals.Plugins.SshNet` plugin and related integration.
 
 The SSH.NET plugin uses **SSH.NET 2020.0.2** (upgraded from 2016.1.0) for improved algorithms and key support. Authentication supports password, private keys (`KeyFile` / `KeyTag` + application SSH key store), and keyboard-interactive prompts. Host keys are verified against a persisted known-hosts file with a trust prompt (no silent auto-trust). PuTTY Pageant and X11 forwarding are not supported by this plugin.
 
-Terminal emulation is documented in [TERMINAL-EMULATION.md](Source/Terminals.Plugins.SshNet/TERMINAL-EMULATION.md) (xterm control sequences, PTY sizing, PuTTY vs SSH.NET). For PuTTY-identical display, use the legacy **PuTTY** SSH connection type.
+### SSH.NET plugin docs
+
+| Document | Description |
+|----------|-------------|
+| [TERMINAL-EMULATION.md](Source/Terminals.Plugins.SshNet/TERMINAL-EMULATION.md) | Current terminal model (xterm control sequences, PTY sizing, PuTTY vs SSH.NET) |
+| [ROADMAP-VTNETCORE.md](Source/Terminals.Plugins.SshNet/ROADMAP-VTNETCORE.md) | Planned phase 2: VtNetCore / XTerm.NET and framework upgrade for PuTTY-grade emulation |
+
+For PuTTY-identical display today, use the legacy **PuTTY** SSH connection type.
 
 ## Upstream project
 
