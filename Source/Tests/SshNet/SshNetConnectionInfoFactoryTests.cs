@@ -77,20 +77,41 @@ namespace Tests.SshNet
             bool created = SshNetConnectionInfoFactory.TryCreate("host", 22, CreateCredentials(), new SshOptions { AuthMethod = AuthMethod.Password }, null, null, out setup, out error);
 
             Assert.IsTrue(created, error);
-            Assert.AreEqual(1, setup.ConnectionInfo.AuthenticationMethods.Count);
-            Assert.IsInstanceOfType(setup.ConnectionInfo.AuthenticationMethods[0], typeof(PasswordAuthenticationMethod));
+            Assert.IsTrue(setup.ConnectionInfo.AuthenticationMethods.Count >= 1);
+            Assert.IsInstanceOfType(
+                setup.ConnectionInfo.AuthenticationMethods[setup.ConnectionInfo.AuthenticationMethods.Count - 1],
+                typeof(PasswordAuthenticationMethod));
         }
 
         [TestMethod]
-        public void TryCreate_WithoutPassword_RegistersNoneAuthentication()
+        public void TryCreate_EmptyUserName_ReturnsErrorForPasswordAuth()
+        {
+            SshNetConnectionSetup setup;
+            string error;
+            bool created = SshNetConnectionInfoFactory.TryCreate(
+                "host",
+                22,
+                CreateCredentials(userName: string.Empty),
+                new SshOptions { AuthMethod = AuthMethod.Password },
+                null,
+                null,
+                out setup,
+                out error);
+
+            Assert.IsFalse(created);
+            Assert.IsTrue(error.ToLowerInvariant().Contains("user"), error);
+        }
+
+        [TestMethod]
+        public void TryCreate_WithoutPassword_ReturnsErrorForPasswordAuth()
         {
             SshNetConnectionSetup setup;
             string error;
             bool created = SshNetConnectionInfoFactory.TryCreate("host", 22, CreateCredentials(password: null), new SshOptions { AuthMethod = AuthMethod.Password }, null, null, out setup, out error);
 
-            Assert.IsTrue(created, error);
-            Assert.AreEqual(1, setup.ConnectionInfo.AuthenticationMethods.Count);
-            Assert.IsInstanceOfType(setup.ConnectionInfo.AuthenticationMethods[0], typeof(NoneAuthenticationMethod));
+            Assert.IsFalse(created);
+            Assert.IsNull(setup);
+            Assert.IsTrue(error.IndexOf("password", System.StringComparison.OrdinalIgnoreCase) >= 0, error);
         }
 
         [TestMethod]
@@ -170,10 +191,10 @@ namespace Tests.SshNet
             return path;
         }
 
-        private static IGuardedSecurity CreateCredentials(string password = "password")
+        private static IGuardedSecurity CreateCredentials(string password = "password", string userName = "user")
         {
             var credentials = new Mock<IGuardedSecurity>();
-            credentials.Setup(c => c.UserName).Returns("user");
+            credentials.Setup(c => c.UserName).Returns(userName);
             credentials.Setup(c => c.Password).Returns(password);
             return credentials.Object;
         }

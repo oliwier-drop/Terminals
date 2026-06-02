@@ -18,7 +18,7 @@ namespace Terminals.Plugins.SshNet
         {
             MessageBox.Show(
                 "Store private keys in Terminals application settings under the SSH keys section, then reference them using KeyTag on the favorite.\r\n\r\nAlternatively set KeyFile to a private key path.",
-                "SSH.NET keys",
+                "SSH keys",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
         }

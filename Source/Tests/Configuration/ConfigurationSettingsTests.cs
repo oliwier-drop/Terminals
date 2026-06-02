@@ -49,12 +49,12 @@ namespace Tests
         public void Ssh_SaveDefaultFavorite_IsSaved()
         {
             var favorite = new FavoriteConfigurationElement();
-            favorite.Protocol = SshConnectionPlugin.SSH; // avoid all default values
+            favorite.Protocol = SshProtocol.Name; // avoid all default values
             settings.SaveDefaultFavorite(favorite);
             settings.ForceReload();
             var loaded = settings.GetDefaultFavorite();
             const string MESSAGE = "Newly saved default favorite has return last saved value.";
-            Assert.AreEqual(SshConnectionPlugin.SSH, loaded.Protocol, MESSAGE);
+            Assert.AreEqual(SshProtocol.Name, loaded.Protocol, MESSAGE);
         }
 
         [TestMethod]

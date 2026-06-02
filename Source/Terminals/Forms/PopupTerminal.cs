@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Windows.Forms;
 using Terminals.Connections;
 using Terminals.Data;
@@ -39,6 +40,13 @@ namespace Terminals
         internal bool HasFavorite(IFavorite updated)
         {
             return this.SelectedOriginFavorite != null && this.SelectedOriginFavorite.StoreIdEquals(updated);
+        }
+
+        internal TerminalTabControlItem FindTerminalTabForFavorite(IFavorite origin)
+        {
+            return this.tabControl1.Items
+                .OfType<TerminalTabControlItem>()
+                .FirstOrDefault(tab => tab.OriginFavorite != null && tab.OriginFavorite.StoreIdEquals(origin));
         }
 
         internal void UpdateTitle()

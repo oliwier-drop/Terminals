@@ -198,7 +198,7 @@ namespace Tests.UserInterface
         [TestMethod]
         public void SSh_ReloadControls_ImplementIProtocolOptionsControl()
         {
-            this.AssertLoadedControlsImplementInterface(SshConnectionPlugin.SSH);
+            this.AssertLoadedControlsImplementInterface(SshProtocol.Name);
         }
 
         [TestMethod]

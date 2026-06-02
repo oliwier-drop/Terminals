@@ -162,10 +162,10 @@
     <Compile Include="Configuration\FavoriteConfigurationElementTests.cs" />
     <Compile Include="Passwords\GuardedSecurityTests.cs" />
     <Compile Include="SshNet\AnsiTerminalScreenTests.cs" />
+    <Compile Include="SshNet\SshCredentialGateTests.cs" />
     <Compile Include="SshNet\SshKnownHostsStoreTests.cs" />
     <Compile Include="SshNet\SshNetConnectionInfoFactoryTests.cs" />
     <Compile Include="SshNet\TestKeyMaterial.cs" />
-    <Compile Include="Putty\ArgumentBuilderSshTests.cs" />
     <Compile Include="Putty\PuttyArgumentBuilderTests.cs" />
     <Compile Include="Putty\PuttyRegistryTests.cs" />
     <Compile Include="Putty\PuttyTests.cs" />

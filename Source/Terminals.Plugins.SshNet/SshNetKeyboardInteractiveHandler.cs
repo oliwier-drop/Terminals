@@ -35,6 +35,11 @@ namespace Terminals.Plugins.SshNet
 
         private static string PromptForSecret(IWin32Window owner, string request, bool secret)
         {
+            return SshUiThread.RunOnOwner(owner, () => PromptForSecretOnUiThread(owner, request, secret));
+        }
+
+        private static string PromptForSecretOnUiThread(IWin32Window owner, string request, bool secret)
+        {
             string caption = "SSH keyboard-interactive authentication";
             string instructions = string.IsNullOrEmpty(request) ? "Enter response:" : request;
 

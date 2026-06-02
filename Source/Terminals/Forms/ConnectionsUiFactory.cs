@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Forms;
 using Terminals.CaptureManager;
+using Terminals.Common.Connections;
 using Terminals.Configuration;
 using Terminals.Connections;
+using Terminals.Credentials;
 using Terminals.Data;
 using Terminals.Data.Credentials;
 using Terminals.Forms.Controls;
@@ -26,6 +28,8 @@ namespace Terminals.Forms
         private readonly Settings settings = Settings.Instance;
 
         private readonly GuardedCredentialFactory guardedCredentialFactory;
+
+        private readonly ICredentialPromptService credentialPromptService = new CredentialPromptService();
 
         private readonly ConnectionManager connectionManager;
 
@@ -156,6 +160,16 @@ namespace Terminals.Forms
 
         private void CreateTerminalTab(IFavorite origin, IFavorite configured)
         {
+            if (!configured.NewWindow)
+            {
+                var existingTab = this.terminalsControler.FindTerminalTabForFavorite(origin);
+                if (existingTab != null)
+                {
+                    this.ReuseExistingTerminalTab(origin, configured, existingTab);
+                    return;
+                }
+            }
+
             ExternalLinks.CallExecuteBeforeConnected(this.settings);
             ExternalLinks.CallExecuteBeforeConnected(configured.ExecuteBeforeConnect);
             TerminalTabControlItem terminalTabPage = CreateTerminalTabPageByFavoriteName(configured);
@@ -185,6 +199,13 @@ namespace Terminals.Forms
                 this.ConfigureTabPage(terminalTabPage, toolTipText, true);
 
                 Connection conn = CreateConnection(origin, configured, terminalTabPage);
+                var deferred = conn as IDeferredConnection;
+                if (deferred != null)
+                {
+                    deferred.BeginConnect(success => this.OnDeferredConnectCompleted(success, configured, terminalTabPage, conn));
+                    return;
+                }
+
                 this.UpdateConnectionTabPageByConnectionState(configured, terminalTabPage, conn);
 
                 if (conn.Connected && configured.NewWindow)
@@ -209,6 +230,10 @@ namespace Terminals.Forms
             if (consumer != null)
                 consumer.Settings = this.settings;
 
+            var promptConsumer = conn as ICredentialPromptConsumer;
+            if (promptConsumer != null)
+                promptConsumer.CredentialPromptService = this.credentialPromptService;
+
             AssignControls(conn, terminalTabPage, this.mainForm);
             return conn;
         }
@@ -232,6 +257,81 @@ namespace Terminals.Forms
             this.mainForm.UpdateControls();
         }
 
+        private void ReuseExistingTerminalTab(IFavorite origin, IFavorite configured, TerminalTabControlItem existingTab)
+        {
+            this.terminalsControler.Select(existingTab);
+            var conn = existingTab.Connection as Connection;
+            if (conn == null)
+            {
+                this.mainForm.UpdateControls();
+                return;
+            }
+
+            conn.Favorite = configured;
+            conn.OriginFavorite = origin;
+
+            var deferred = conn as IDeferredConnection;
+            if (deferred != null && deferred.IsConnectInProgress)
+            {
+                this.mainForm.UpdateControls();
+                return;
+            }
+
+            if (!conn.Connected)
+            {
+                if (deferred != null)
+                {
+                    deferred.BeginConnect(success => this.OnDeferredConnectCompleted(success, configured, existingTab, conn));
+                    return;
+                }
+            }
+
+            this.SyncTerminalAfterConnect(conn);
+            this.FocusConnectionAfterConnect(conn);
+            this.mainForm.UpdateControls();
+        }
+
+        private void OnDeferredConnectCompleted(bool success, IFavorite favorite, TerminalTabControlItem terminalTabPage, Connection conn)
+        {
+            if (success)
+            {
+                this.BringToFrontOnMainForm(conn);
+                this.SyncTerminalAfterConnect(conn);
+                this.FocusConnectionAfterConnect(conn);
+
+                if (favorite.Display.DesktopSize == DesktopSize.FullScreen)
+                    this.mainForm.FullScreen = true;
+
+                if (conn.Connected && favorite.NewWindow)
+                    this.terminalsControler.DetachTabToNewWindow(terminalTabPage);
+
+                this.mainForm.UpdateControls();
+            }
+            else
+            {
+                var deferred = conn as IDeferredConnection;
+                if (deferred != null && deferred.IsConnectInProgress)
+                    return;
+
+                this.ShowConnectFailedMessage(conn);
+                this.terminalsControler.RemoveAndUnSelect(terminalTabPage);
+            }
+        }
+
+        private void FocusConnectionAfterConnect(Connection conn)
+        {
+            var focusable = conn as IConnectionExtra;
+            if (focusable != null)
+                focusable.Focus();
+        }
+
+        private void SyncTerminalAfterConnect(Connection conn)
+        {
+            var sync = conn as IPostConnectTerminalSync;
+            if (sync != null)
+                sync.SyncTerminalAfterLayout();
+        }
+
         private void UpdateConnectionTabPageByConnectionState(IFavorite favorite, TerminalTabControlItem terminalTabPage, Connection conn)
         {
             if (conn.Connect())
@@ -242,12 +342,17 @@ namespace Terminals.Forms
             }
             else
             {
-                String msg = Program.Resources.GetString("SorryTerminalswasunabletoconnecttotheremotemachineTryagainorcheckthelogformoreinformation");
-                if (!string.IsNullOrEmpty(conn.LastError))
-                    msg = msg + "\r\n\r\nDetails:\r\n" + conn.LastError;
-                MessageBox.Show(msg);
+                this.ShowConnectFailedMessage(conn);
                 this.terminalsControler.RemoveAndUnSelect(terminalTabPage);
             }
+        }
+
+        private void ShowConnectFailedMessage(Connection conn)
+        {
+            String msg = Program.Resources.GetString("SorryTerminalswasunabletoconnecttotheremotemachineTryagainorcheckthelogformoreinformation");
+            if (!string.IsNullOrEmpty(conn.LastError))
+                msg = msg + "\r\n\r\nDetails:\r\n" + conn.LastError;
+            MessageBox.Show(msg);
         }
 
         private void BringToFrontOnMainForm(Control tabContentControl)

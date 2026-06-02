@@ -8,10 +8,10 @@ This document describes what you need to **build** and **run** this fork of Term
 |-------------|--------|
 | **Operating system** | Windows (same as upstream Terminals). Tested on Windows 10/11. |
 | **.NET Framework** | **4.0 or later** (4.8 recommended). The solution targets .NET Framework 4.0; newer Windows versions include a compatible runtime. |
-| **PuTTY** (optional) | Required only for the legacy **SSH** protocol plugin (`putty.exe` in `Resources` or PATH). Not required for the **SSH.NET** plugin. |
+| **PuTTY** (optional) | Required only for **Telnet** (`putty.exe` in `Resources` or PATH). Not required for **SSH** (SSH.NET plugin). |
 | **RDP / VNC / other protocols** | Same dependencies as [upstream system requirements](Docs/System-Requirements.md) for each protocol you use. |
 
-### SSH.NET plugin
+### SSH plugin (SSH.NET)
 
 - Outbound TCP to the SSH server (default port **22**).
 - Credentials: password and/or private key (`KeyFile` path or `KeyTag` entry in application SSH key store).

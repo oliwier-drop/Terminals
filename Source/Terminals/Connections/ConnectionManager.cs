@@ -142,7 +142,7 @@ namespace Terminals.Connections
 
         internal bool IsKnownProtocol(string protocol)
         {
-            return this.plugins.Any(p => p.Key == protocol);
+            return this.plugins.Any(p => p.Key == KnownConnectionConstants.NormalizeProtocolName(protocol));
         }
 
         internal Control[] CreateControls(string newProtocol)
@@ -153,6 +153,8 @@ namespace Terminals.Connections
 
         private IConnectionPlugin FindPlugin(string protocolName)
         {
+            protocolName = KnownConnectionConstants.NormalizeProtocolName(protocolName);
+
             IConnectionPlugin plugin;
             if (this.plugins.TryGetValue(protocolName, out plugin))
                 return plugin;

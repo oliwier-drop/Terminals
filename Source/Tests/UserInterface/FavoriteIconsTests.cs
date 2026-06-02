@@ -36,7 +36,7 @@ namespace Tests.UserInterface
             {
                 new Tuple<string, string>(KnownConnectionConstants.RDP, "treeIcon_RDP"),
                 new Tuple<string, string>(VncConnectionPlugin.VNC, "treeIcon_VNC"),
-                new Tuple<string, string>(SshConnectionPlugin.SSH, "treeIcon_SSH"),
+                new Tuple<string, string>(SshProtocol.Name, "treeIcon_SSH"),
                 new Tuple<string, string>(TelnetConnectionPlugin.TELNET, "treeIcon_Telnet"),
                 new Tuple<string, string>(KnownConnectionConstants.HTTP, "treeIcon_HTTP"),
                 new Tuple<string, string>(KnownConnectionConstants.HTTPS, "treeIcon_HTTPS"),
@@ -73,7 +73,7 @@ namespace Tests.UserInterface
             {
                 new Tuple<string, Image>(KnownConnectionConstants.RDP, RdpConnectionPlugin.TreeIconRdp),
                 new Tuple<string, Image>(VncConnectionPlugin.VNC, VncConnectionPlugin.TreeIconVnc),
-                new Tuple<string, Image>(SshConnectionPlugin.SSH, SshConnectionPlugin.TreeIconSsh),
+                new Tuple<string, Image>(SshProtocol.Name, SshProtocol.TreeIconSsh),
                 new Tuple<string, Image>(TelnetConnectionPlugin.TELNET, TelnetConnectionPlugin.TreeIconTelnet),
                 new Tuple<string, Image>(KnownConnectionConstants.HTTP, HttpConnectionPlugin.TreeIconHttp),
                 new Tuple<string, Image>(KnownConnectionConstants.HTTPS, HttpConnectionPlugin.TreeIconHttp),

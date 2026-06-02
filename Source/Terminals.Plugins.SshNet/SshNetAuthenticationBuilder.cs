@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using Renci.SshNet;
 using Terminals.Common.Configuration;
 using Terminals.Configuration;
@@ -33,19 +35,29 @@ namespace Terminals.Plugins.SshNet
                     return TryAddPublicKeyOnly(userName, password, keyTag, keyFile, sshKeys, list, out methods, out error);
 
                 case AuthMethod.KeyboardInteractive:
+                    if (!ValidateUserName(userName, out error))
+                        return false;
                     list.Add(SshNetKeyboardInteractiveHandler.Create(userName, password, owner));
                     methods = list.ToArray();
                     return true;
 
                 case AuthMethod.Password:
-                    AddPasswordOrNone(userName, password, list);
+                    TryAddDefaultUserPrivateKeys(userName, password, list);
+                    if (!TryAddPasswordMethods(userName, password, owner, list, true, false, out error))
+                        return false;
                     methods = list.ToArray();
                     return true;
 
                 case AuthMethod.Host:
                     TryAddPublicKey(userName, password, keyTag, keyFile, sshKeys, list, out error);
-                    AddPasswordOrNone(userName, password, list);
-                    list.Add(SshNetKeyboardInteractiveHandler.Create(userName, password, owner));
+                    TryAddPasswordMethods(userName, password, owner, list, false, true, out error);
+                    if (list.Count == 0)
+                    {
+                        if (!ValidateUserName(userName, out error))
+                            return false;
+                        list.Add(SshNetKeyboardInteractiveHandler.Create(userName, password ?? string.Empty, owner));
+                    }
+
                     if (list.Count == 0)
                     {
                         error = error ?? "No authentication method is available for this connection.";
@@ -56,16 +68,23 @@ namespace Terminals.Plugins.SshNet
                     return true;
 
                 default:
-                    AddPasswordOrNone(userName, password, list);
-                    if (list.Count == 0)
-                    {
-                        error = error ?? "No authentication method is available for this connection.";
+                    if (!TryAddPasswordMethods(userName, password, owner, list, true, false, out error))
                         return false;
-                    }
-
                     methods = list.ToArray();
                     return true;
             }
+        }
+
+        private static bool ValidateUserName(string userName, out string error)
+        {
+            if (string.IsNullOrWhiteSpace(userName))
+            {
+                error = "SSH user name is required.";
+                return false;
+            }
+
+            error = null;
+            return true;
         }
 
         private static bool TryAddPublicKeyOnly(
@@ -78,6 +97,12 @@ namespace Terminals.Plugins.SshNet
             out AuthenticationMethod[] methods,
             out string error)
         {
+            if (!ValidateUserName(userName, out error))
+            {
+                methods = null;
+                return false;
+            }
+
             PrivateKeyAuthenticationMethod keyMethod;
             if (!SshNetPrivateKeyLoader.TryLoadPrivateKey(userName, keyTag, keyFile, password, sshKeys, out keyMethod, out error))
             {
@@ -103,17 +128,68 @@ namespace Terminals.Plugins.SshNet
             if (string.IsNullOrEmpty(keyTag) && string.IsNullOrEmpty(keyFile))
                 return;
 
+            if (string.IsNullOrWhiteSpace(userName))
+                return;
+
             PrivateKeyAuthenticationMethod keyMethod;
             if (SshNetPrivateKeyLoader.TryLoadPrivateKey(userName, keyTag, keyFile, password, sshKeys, out keyMethod, out error))
                 list.Add(keyMethod);
         }
 
-        private static void AddPasswordOrNone(string userName, string password, List<AuthenticationMethod> list)
+        private static void TryAddDefaultUserPrivateKeys(string userName, string passphrase, List<AuthenticationMethod> list)
         {
-            if (!string.IsNullOrEmpty(password))
-                list.Add(new PasswordAuthenticationMethod(userName, password));
-            else if (list.Count == 0)
-                list.Add(new NoneAuthenticationMethod(userName));
+            string sshDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ssh");
+            if (!Directory.Exists(sshDirectory))
+                return;
+
+            string[] keyFiles = { "id_ed25519", "id_rsa", "id_ecdsa" };
+            foreach (string keyFileName in keyFiles)
+            {
+                string path = Path.Combine(sshDirectory, keyFileName);
+                if (!File.Exists(path))
+                    continue;
+
+                PrivateKeyAuthenticationMethod keyMethod;
+                string error;
+                if (SshNetPrivateKeyLoader.TryLoadPrivateKey(userName, null, path, passphrase, null, out keyMethod, out error))
+                    list.Add(keyMethod);
+            }
+        }
+
+        private static bool TryAddPasswordMethods(
+            string userName,
+            string password,
+            System.Windows.Forms.IWin32Window owner,
+            List<AuthenticationMethod> list,
+            bool required,
+            bool includeKeyboardInteractive,
+            out string error)
+        {
+            error = null;
+
+            if (string.IsNullOrWhiteSpace(userName))
+            {
+                if (!required)
+                    return true;
+
+                error = "SSH user name is required.";
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(password))
+            {
+                if (!required)
+                    return true;
+
+                error = "SSH password is required.";
+                return false;
+            }
+
+            if (includeKeyboardInteractive)
+                list.Add(SshNetKeyboardInteractiveHandler.Create(userName, password, owner));
+
+            list.Add(new PasswordAuthenticationMethod(userName, password));
+            return true;
         }
     }
 }

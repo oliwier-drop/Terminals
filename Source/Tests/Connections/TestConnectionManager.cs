@@ -8,6 +8,7 @@ using Terminals.Connections.VNC;
 using Terminals.Connections.Web;
 using Terminals.Data;
 using Terminals.Plugins.Putty;
+using Terminals.Plugins.SshNet;
 
 namespace Tests.Connections
 {
@@ -21,7 +22,7 @@ namespace Tests.Connections
             new VncConnectionPlugin(),
             new VmrcConnectionPlugin(),
             new TelnetConnectionPlugin(),
-            new SshConnectionPlugin(),
+            new SshNetConnectionPlugin(),
             new ICAConnectionPlugin()
         };
 

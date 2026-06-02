@@ -574,6 +574,8 @@
       <DependentUpon>CredentialManager.cs</DependentUpon>
     </Compile>
     <Compile Include="Data\Credentials\CredentialSet.cs" />
+    <Compile Include="Credentials\CredentialPromptService.cs" />
+    <Compile Include="Credentials\SshConnectCredentialForm.cs" />
     <Compile Include="Credentials\ConnectExtraForm.cs">
       <SubType>Form</SubType>
     </Compile>

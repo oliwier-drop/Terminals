@@ -54,9 +54,12 @@ namespace Terminals.Plugins.Putty
         /// <summary>Hides PuTTY-only options when hosted by the SSH.NET plugin.</summary>
         public void ConfigureForSshNetPlugin()
         {
+            this.SetPuttySessionControlsVisible(false);
             this.checkBoxEnablePagentAuthentication.Visible = false;
             this.checkBoxEnablePagentForwarding.Visible = false;
             this.checkBoxX11Forwarding.Visible = false;
+            this.labelSshVersion.Visible = false;
+            this.cmbSshVersion.Visible = false;
             this.keysButton.Text = "SSH key store";
         }
     }

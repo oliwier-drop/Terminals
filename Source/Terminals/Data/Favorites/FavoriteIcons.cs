@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using Terminals.Common.Connections;
 using Terminals.Configuration;
 using Terminals.Connections;
 using Terminals.Properties;
@@ -53,6 +54,7 @@ namespace Terminals.Data
         /// </summary>
         internal string GetTreeviewImageListKey(string protocol)
         {
+            protocol = KnownConnectionConstants.NormalizeProtocolName(protocol);
             if (pluginIcons.ContainsKey(protocol))
                 return CreateIconKey(protocol);
 
@@ -64,8 +66,9 @@ namespace Terminals.Data
         /// </summary>
         private Image GetProtocolImage(IFavorite favorite)
         {
-            if (pluginIcons.ContainsKey(favorite.Protocol))
-                return pluginIcons[favorite.Protocol];
+            string protocol = KnownConnectionConstants.NormalizeProtocolName(favorite.Protocol);
+            if (pluginIcons.ContainsKey(protocol))
+                return pluginIcons[protocol];
              
             return Connection.Terminalsicon;
         }

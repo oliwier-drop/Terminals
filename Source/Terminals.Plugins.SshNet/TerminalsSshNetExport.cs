@@ -1,4 +1,5 @@
 using Terminals.Integration.Export;
+using Terminals.Plugins.Putty;
 
 namespace Terminals.Plugins.SshNet
 {
@@ -6,7 +7,7 @@ namespace Terminals.Plugins.SshNet
     {
         public void ExportOptions(IExportOptionsContext context)
         {
-            if (context.Favorite.Protocol == SshNetConnectionPlugin.SshNet)
+            if (context.Favorite.Protocol == SshProtocol.Name)
             {
                 context.WriteElementString("sshSessionName", context.Favorite.SshSessionName);
                 context.WriteElementString("sshVerbose", context.Favorite.SshVerbose.ToString());

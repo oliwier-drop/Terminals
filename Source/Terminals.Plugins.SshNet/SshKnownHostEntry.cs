@@ -3,7 +3,7 @@ using System;
 namespace Terminals.Plugins.SshNet
 {
     [Serializable]
-    internal sealed class SshKnownHostEntry
+    public sealed class SshKnownHostEntry
     {
         public string Host { get; set; }
 

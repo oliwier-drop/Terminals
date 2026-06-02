@@ -70,7 +70,7 @@ namespace Tests.Connections
             new Tuple<string, Type>(VncConnectionPlugin.VNC, typeof(VncOptions)),
             new Tuple<string, Type>(VmrcConnectionPlugin.VMRC, typeof(VMRCOptions)),
             new Tuple<string, Type>(TelnetConnectionPlugin.TELNET, typeof(TelnetOptions)),
-            new Tuple<string, Type>(SshConnectionPlugin.SSH, typeof(SshOptions)),
+            new Tuple<string, Type>(SshProtocol.Name, typeof(SshOptions)),
             new Tuple<string, Type>(KnownConnectionConstants.HTTP, typeof(WebOptions)),
             new Tuple<string, Type>(KnownConnectionConstants.HTTPS, typeof(WebOptions)),
             new Tuple<string, Type>(ICAConnectionPlugin.ICA_CITRIX, typeof(ICAOptions))

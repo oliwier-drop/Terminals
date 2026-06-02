@@ -1,3 +1,5 @@
+using System;
+
 namespace Terminals.Common.Connections
 {
     public class KnownConnectionConstants
@@ -13,5 +15,17 @@ namespace Terminals.Common.Connections
         public const string RAS = "RAS";
 
         public const string RDP = "RDP";
+
+        public const string SSH = "SSH";
+
+        private const string LegacySshNetProtocol = "SSH.NET";
+
+        public static string NormalizeProtocolName(string protocolName)
+        {
+            if (string.Equals(protocolName, LegacySshNetProtocol, StringComparison.Ordinal))
+                return SSH;
+
+            return protocolName;
+        }
     }
 }

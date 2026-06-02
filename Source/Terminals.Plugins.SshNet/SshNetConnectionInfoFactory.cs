@@ -24,6 +24,24 @@ namespace Terminals.Plugins.SshNet
             out SshNetConnectionSetup setup,
             out string error)
         {
+            var session = new SshSessionCredentials
+            {
+                UserName = credentials != null ? credentials.UserName : string.Empty,
+                Password = credentials != null ? credentials.Password : null
+            };
+            return TryCreate(host, port, session, sshOptions, sshKeys, owner, out setup, out error);
+        }
+
+        internal static bool TryCreate(
+            string host,
+            int port,
+            SshSessionCredentials credentials,
+            SshOptions sshOptions,
+            KeysSection sshKeys,
+            IWin32Window owner,
+            out SshNetConnectionSetup setup,
+            out string error)
+        {
             setup = null;
             error = null;
 
@@ -33,8 +51,8 @@ namespace Terminals.Plugins.SshNet
                 return false;
             }
 
-            string userName = credentials.UserName ?? string.Empty;
-            string password = credentials.Password;
+            string userName = credentials != null ? credentials.UserName : string.Empty;
+            string password = credentials != null ? credentials.Password : null;
 
             AuthenticationMethod[] methods;
             if (!SshNetAuthenticationBuilder.TryBuildMethods(userName, password, sshOptions, sshKeys, owner, out methods, out error))

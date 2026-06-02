@@ -12,12 +12,9 @@ namespace Terminals.Plugins.SshNet
 {
     internal class SshNetConnectionPlugin : IConnectionPlugin, IOptionsConverterFactory, IOptionsExporterFactory
     {
-        internal const int SshPort = 22;
-        internal const string SshNet = "SSH.NET";
+        public int Port { get { return SshProtocol.Port; } }
 
-        public int Port { get { return SshPort; } }
-
-        public string PortName { get { return SshNet; } }
+        public string PortName { get { return SshProtocol.Name; } }
 
         public Connection CreateConnection()
         {
@@ -31,7 +28,7 @@ namespace Terminals.Plugins.SshNet
 
         public Control[] CreateOptionsControls()
         {
-            return new Control[] { new SshNetOptionsControl { Name = "SSH.NET" } };
+            return new Control[] { new SshNetOptionsControl { Name = SshProtocol.Name } };
         }
 
         public IOptionsConverter CreatOptionsConverter()
@@ -41,7 +38,7 @@ namespace Terminals.Plugins.SshNet
 
         public Image GetIcon()
         {
-            return Connection.Terminalsicon;
+            return SshProtocol.TreeIconSsh;
         }
 
         public Type GetOptionsType()

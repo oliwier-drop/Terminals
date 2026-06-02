@@ -21,7 +21,7 @@ namespace Tests.FilePersisted
     {
         private IFavorite favoriteSsh;
 
-        private const string PROTOCOL = SshConnectionPlugin.SSH;
+        private const string PROTOCOL = SshProtocol.Name;
 
         private IFavorite favoriteNamed;
 

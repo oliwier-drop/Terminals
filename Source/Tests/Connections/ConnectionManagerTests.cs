@@ -41,7 +41,7 @@ namespace Tests.Connections
         public void GetAvailableProtocols_ReturnsAll()
         {
             int knownProtocols = GetUniqueProtocols().Count();
-            Assert.AreEqual(9, knownProtocols, "All other test in this SUT operate on wrong data.");
+            Assert.AreEqual(8, knownProtocols, "All other test in this SUT operate on wrong data.");
         }
 
         [TestMethod]
@@ -54,7 +54,7 @@ namespace Tests.Connections
                 // VMRCConnection creation may fail in some test runners.
                 //new Tuple<string, Type>(VmrcConnectionPlugin.VMRC, typeof(VMRCConnection)),
                 new Tuple<string, Type>(TelnetConnectionPlugin.TELNET, typeof(PuttyConnection)),
-                new Tuple<string, Type>(SshConnectionPlugin.SSH, typeof(PuttyConnection)),
+                new Tuple<string, Type>(SshProtocol.Name, typeof(SshNetConnection)),
                 new Tuple<string, Type>(KnownConnectionConstants.HTTP, typeof(HTTPConnection)),
                 new Tuple<string, Type>(KnownConnectionConstants.HTTPS, typeof(HTTPConnection)),
                 new Tuple<string, Type>(ICAConnectionPlugin.ICA_CITRIX, typeof(ICAConnection))
@@ -62,6 +62,13 @@ namespace Tests.Connections
 
             var allValid = testData.All(this.AssertCreatedConnection);
             Assert.IsTrue(allValid, "User would be unable to connect.");
+        }
+
+        [TestMethod]
+        public void LegacySshNetProtocol_CreateConnection_ReturnsSshNetConnection()
+        {
+            var testCase = new Tuple<string, Type>("SSH.NET", typeof(SshNetConnection));
+            Assert.IsTrue(this.AssertCreatedConnection(testCase), "Saved favorites using SSH.NET must resolve to the SSH plugin.");
         }
 
         [TestMethod]
@@ -106,7 +113,7 @@ namespace Tests.Connections
                 new Tuple<string, int>(VncConnectionPlugin.VNC, VncConnectionPlugin.VncPort),
                 new Tuple<string, int>(VmrcConnectionPlugin.VMRC, VmrcConnectionPlugin.VMRCPort),
                 new Tuple<string, int>(TelnetConnectionPlugin.TELNET, TelnetConnectionPlugin.TelnetPort),
-                new Tuple<string, int>(SshConnectionPlugin.SSH, SshConnectionPlugin.SSHPort),
+                new Tuple<string, int>(SshProtocol.Name, SshProtocol.Port),
                 new Tuple<string, int>(KnownConnectionConstants.HTTP, KnownConnectionConstants.HTTPPort),
                 new Tuple<string, int>(KnownConnectionConstants.HTTPS, HttpsConnectionPlugin.HTTPSPort),
                 new Tuple<string, int>(ICAConnectionPlugin.ICA_CITRIX, ICAConnectionPlugin.ICAPort)
@@ -143,7 +150,7 @@ namespace Tests.Connections
                 // imposible to distinquish vnc and vmrc, if both operate on the same port.
                 // new Tuple<int, string>(VmrcConnectionPlugin.VMRCPort, VmrcConnectionPlugin.VMRC),
                 new Tuple<int, string>(TelnetConnectionPlugin.TelnetPort, TelnetConnectionPlugin.TELNET),
-                new Tuple<int, string>(SshConnectionPlugin.SSHPort, SshConnectionPlugin.SSH),
+                new Tuple<int, string>(SshProtocol.Port, SshProtocol.Name),
                 new Tuple<int, string>(KnownConnectionConstants.HTTPPort, KnownConnectionConstants.HTTP),
                 new Tuple<int, string>(HttpsConnectionPlugin.HTTPSPort, KnownConnectionConstants.HTTPS),
                 new Tuple<int, string>(ICAConnectionPlugin.ICAPort, ICAConnectionPlugin.ICA_CITRIX)
@@ -174,7 +181,7 @@ namespace Tests.Connections
             {
                 KnownConnectionConstants.RDP,
                 VncConnectionPlugin.VNC,
-                SshConnectionPlugin.SSH,
+                SshProtocol.Name,
                 TelnetConnectionPlugin.TELNET,
                 VmrcConnectionPlugin.VMRC
             };
@@ -247,7 +254,7 @@ namespace Tests.Connections
                 new Tuple<string, int, string>(VncConnectionPlugin.VNC, 1, "Terminals.Forms.EditFavorite.VncControl"),
                 new Tuple<string, int, string>(VmrcConnectionPlugin.VMRC, 1, "Terminals.Forms.EditFavorite.VmrcControl"),
                 new Tuple<string, int, string>(TelnetConnectionPlugin.TELNET, 1, "Terminals.Plugins.Putty.PuttyOptionsControl"),
-                new Tuple<string, int, string>(SshConnectionPlugin.SSH, 1, "Terminals.Plugins.Putty.SshOptionsControl"),
+                new Tuple<string, int, string>(SshProtocol.Name, 1, "Terminals.Plugins.SshNet.SshNetOptionsControl"),
                 new Tuple<string, int, string>(ICAConnectionPlugin.ICA_CITRIX, 1, "Terminals.Forms.EditFavorite.CitrixControl")
             };
         }
@@ -301,7 +308,6 @@ namespace Tests.Connections
                 "Terminals.Integration.Export.TerminalsRdpExport",
                 "Terminals.Integration.Export.TerminalsVncExport",
                 "Terminals.Integration.Export.TerminalsIcaExport",
-                "Terminals.Plugins.Putty.TerminalsSshExport",
                 "Terminals.Plugins.Putty.TerminalsTelnetExport",
                 "Terminals.Integration.Export.TerminalsVmrcExport",
                 "Terminals.Plugins.SshNet.TerminalsSshNetExport"
@@ -317,7 +323,6 @@ namespace Tests.Connections
         {
             IEnumerable<Type> optionTypes = this.connectionManager.GetAllKnownProtocolOptionTypes()
                 .Distinct();
-            // SSH and SSH.NET share SshOptions; protocol names are still distinct (9 protocols).
             Assert.AreEqual(8, optionTypes.Count(), "To be able serialize all known protocols we have to list all.");
         }
         
@@ -340,12 +345,8 @@ namespace Tests.Connections
                     new List<string>() { "Terminals.Connections.VNC.VncConnectionPlugin", "Terminals.Connections.VMRC.VmrcConnectionPlugin"}),
                 new Tuple<int, IEnumerable<string>>(TelnetConnectionPlugin.TelnetPort, 
                     new List<string>() { "Terminals.Plugins.Putty.TelnetConnectionPlugin"}),
-                new Tuple<int, IEnumerable<string>>(SshConnectionPlugin.SSHPort, 
-                    new List<string>()
-                    {
-                        "Terminals.Plugins.Putty.SshConnectionPlugin",
-                        "Terminals.Plugins.SshNet.SshNetConnectionPlugin"
-                    }),
+                new Tuple<int, IEnumerable<string>>(SshProtocol.Port, 
+                    new List<string>() { "Terminals.Plugins.SshNet.SshNetConnectionPlugin" }),
                 new Tuple<int, IEnumerable<string>>(KnownConnectionConstants.HTTPPort, 
                     new List<string>() { "Terminals.Connections.Web.HttpConnectionPlugin"}),
                 new Tuple<int, IEnumerable<string>>(HttpsConnectionPlugin.HTTPSPort, 

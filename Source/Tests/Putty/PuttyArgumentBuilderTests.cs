@@ -6,7 +6,7 @@ using Terminals.Plugins.Putty;
 
 namespace Tests.Putty
 {
-    [TestClass]
+    /// <summary>Base for Telnet argument-builder tests (not a test class itself).</summary>
     public class PuttyArgumentBuilderTests<TOptions> where TOptions : PuttyOptions
     {
         protected TOptions Options { get; set; }

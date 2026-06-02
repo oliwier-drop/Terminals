@@ -70,7 +70,7 @@
       <DependentUpon>PuttyOptionsControl.cs</DependentUpon>
     </Compile>
     <Compile Include="TelnetConnectionPlugin.cs" />
-    <Compile Include="SshConnectionPlugin.cs" />
+    <Compile Include="SshProtocol.cs" />
     <Compile Include="PuttyOptions.cs" />
     <Compile Include="SshOptionsControl.cs">
       <SubType>UserControl</SubType>
@@ -80,7 +80,6 @@
     </Compile>
     <Compile Include="SshOptionsConverter.cs" />
     <Compile Include="PuttyRegistry.cs" />
-    <Compile Include="TerminalsSshExport.cs" />
     <Compile Include="TerminalsTelnetExport.cs" />
   </ItemGroup>
   <ItemGroup>

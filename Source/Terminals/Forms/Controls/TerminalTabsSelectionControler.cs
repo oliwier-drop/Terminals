@@ -98,6 +98,22 @@ namespace Terminals
             this.mainTabControl.SelectedItem = toSelect;
         }
 
+        internal TerminalTabControlItem FindAttachedTerminalTab(IFavorite origin)
+        {
+            return this.filter.FindAttachedTab(origin) as TerminalTabControlItem;
+        }
+
+        internal TerminalTabControlItem FindTerminalTabForFavorite(IFavorite origin)
+        {
+            TerminalTabControlItem tab = this.FindAttachedTerminalTab(origin);
+            if (tab != null)
+                return tab;
+
+            return this.detachedWindows
+                .Select(popup => popup.FindTerminalTabForFavorite(origin))
+                .FirstOrDefault(candidate => candidate != null);
+        }
+
         /// <summary>
         /// Clears the selection of currently manipulated TabControl.
         /// This has the same result like to call Select(null).

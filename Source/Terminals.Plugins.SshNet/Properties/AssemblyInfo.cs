@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 [assembly: AssemblyTitle("Terminals.Plugins.SshNet")]
-[assembly: AssemblyDescription("SSH.NET")]
+[assembly: AssemblyDescription("SshNet")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCulture("")]
 

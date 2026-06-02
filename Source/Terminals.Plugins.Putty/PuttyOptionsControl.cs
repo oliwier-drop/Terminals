@@ -65,5 +65,14 @@ namespace Terminals.Plugins.Putty
             this.sessionsBindingSource.DataSource = puttyRegistry.GetSessions();
             this.cmbSessionName.SelectedItem = lastKnown;
         }
+
+        /// <summary>Hides PuTTY session picker (Telnet-only UI uses the registry).</summary>
+        protected void SetPuttySessionControlsVisible(bool visible)
+        {
+            this.labelSession.Visible = visible;
+            this.cmbSessionName.Visible = visible;
+            this.editSessinsButton.Visible = visible;
+            this.refreshButton.Visible = visible;
+        }
     }
 }

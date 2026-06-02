@@ -37,13 +37,15 @@ namespace Terminals.Plugins.SshNet
                 return;
             }
 
-            SshHostKeyTrustChoice choice = SshHostKeyTrustDialog.Show(
+            SshHostKeyTrustChoice choice = SshUiThread.RunOnOwner(
                 this.owner,
-                this.host,
-                this.port,
-                e.HostKeyName,
-                fingerprintDisplay,
-                keyChanged);
+                () => SshHostKeyTrustDialog.Show(
+                    this.owner,
+                    this.host,
+                    this.port,
+                    e.HostKeyName,
+                    fingerprintDisplay,
+                    keyChanged));
 
             if (choice == SshHostKeyTrustChoice.Reject)
             {

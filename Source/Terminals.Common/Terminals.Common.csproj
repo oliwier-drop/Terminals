@@ -58,6 +58,8 @@
     </Compile>
     <Compile Include="Configuration\AuthMethod.cs" />
     <Compile Include="Configuration\KeysSection.cs" />
+    <Compile Include="Connections\IDeferredConnection.cs" />
+    <Compile Include="Connections\IPostConnectTerminalSync.cs" />
     <Compile Include="Connections\IFocusable.cs" />
     <Compile Include="Connections\IHandleKeyboardInput.cs" />
     <Compile Include="Connections\IOptionsConverter.cs" />
@@ -126,6 +128,9 @@
     <Compile Include="Forms\EditFavorite\IProtocolObserver.cs" />
     <Compile Include="Forms\EditFavorite\IValidatedProtocolControl.cs" />
     <Compile Include="Configuration\IConnectionSettings.cs" />
+    <Compile Include="Configuration\ConnectionCredentialPromptResult.cs" />
+    <Compile Include="Configuration\ICredentialPromptConsumer.cs" />
+    <Compile Include="Configuration\ICredentialPromptService.cs" />
     <Compile Include="Configuration\ISettingsConsumer.cs" />
     <Compile Include="Native\Enums.cs" />
     <Compile Include="Integration\Export\IExportOptionsContext.cs" />
