@@ -1,4 +1,8 @@
+﻿// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) oliwier-drop and contributors — fork-authored code.
+// See LICENSE-GPLv3.md and FORK-AUTHORED.md at the repository root.
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 
 namespace Terminals.Plugins.SshNet
@@ -7,6 +11,7 @@ namespace Terminals.Plugins.SshNet
     {
         private static readonly Color DefaultForeground = Color.FromArgb(0xC0, 0xC0, 0xC0);
         private static readonly Color DefaultBackground = Color.Black;
+        private static readonly Dictionary<string, Color> Cache = new Dictionary<string, Color>(StringComparer.Ordinal);
 
         internal static Color ParseForeground(string hexOrName)
         {
@@ -23,7 +28,18 @@ namespace Terminals.Plugins.SshNet
             if (string.IsNullOrEmpty(value))
                 return fallback;
 
-            string trimmed = value.Trim();
+            string key = value.Trim();
+            Color cached;
+            if (Cache.TryGetValue(key, out cached))
+                return cached;
+
+            Color parsed = ParseColorCore(key, fallback);
+            Cache[key] = parsed;
+            return parsed;
+        }
+
+        private static Color ParseColorCore(string trimmed, Color fallback)
+        {
             if (trimmed.StartsWith("#", StringComparison.Ordinal))
             {
                 try

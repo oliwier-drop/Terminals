@@ -1,3 +1,6 @@
+﻿// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) oliwier-drop and contributors — fork-authored code.
+// See LICENSE-GPLv3.md and FORK-AUTHORED.md at the repository root.
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -12,8 +15,12 @@ namespace Terminals.Plugins.SshNet
     /// <summary>WinForms terminal surface backed by VtNetCore and GDI+ cell rendering.</summary>
     internal class SshTerminalControl : UserControl
     {
-        private const int RenderIntervalMs = 50;
+        private const int RenderIntervalMs = 16;
         private const int ResizeDebounceMs = 200;
+        private const int CoalescedRenderThresholdChars = 8192;
+        private const int FullRepaintCellThreshold = 6000;
+        private const int PartialRepaintMaxChunkChars = 256;
+        private const int PartialRepaintRowMargin = 2;
         private const int MaxColumns = 260;
         private const int MaxRows = 100;
 
@@ -25,8 +32,16 @@ namespace Terminals.Plugins.SshNet
         private readonly Timer resizeDebounceTimer;
         private readonly VScrollBar scrollBar;
         private readonly Font terminalFont;
+        private readonly Font terminalBoldFont;
+        private readonly Font terminalItalicFont;
+        private readonly Font terminalBoldItalicFont;
         private int cellWidth;
         private int cellHeight;
+        private int cachedMetricsWidth = -1;
+        private int cachedMetricsHeight = -1;
+        private Bitmap frameCache;
+        private int frameCacheWidth;
+        private int frameCacheHeight;
 
         private int viewTopRow;
         private int lastSessionColumns = -1;
@@ -40,7 +55,7 @@ namespace Terminals.Plugins.SshNet
         {
             get
             {
-                this.RefreshCellMetrics();
+                this.EnsureCellMetrics();
                 if (this.cellWidth <= 0)
                     return 80;
                 int paintableWidth = this.GetPaintableWidth();
@@ -52,7 +67,7 @@ namespace Terminals.Plugins.SshNet
         {
             get
             {
-                this.RefreshCellMetrics();
+                this.EnsureCellMetrics();
                 if (this.cellHeight <= 0)
                     return 24;
                 return Math.Min(MaxRows, Math.Max(8, this.DisplayRectangle.Height / this.cellHeight));
@@ -65,6 +80,9 @@ namespace Terminals.Plugins.SshNet
         {
             this.sendInput = sendInput;
             this.terminalFont = CreateTerminalFont();
+            this.terminalBoldFont = new Font(this.terminalFont, FontStyle.Bold);
+            this.terminalItalicFont = new Font(this.terminalFont, FontStyle.Italic);
+            this.terminalBoldItalicFont = new Font(this.terminalFont, FontStyle.Bold | FontStyle.Italic);
             this.RefreshCellMetrics();
 
             this.Dock = DockStyle.Fill;
@@ -109,7 +127,7 @@ namespace Terminals.Plugins.SshNet
 
         internal void GetCellPixelSize(out int width, out int height)
         {
-            this.RefreshCellMetrics();
+            this.EnsureCellMetrics();
             width = this.cellWidth;
             height = this.cellHeight;
         }
@@ -190,14 +208,41 @@ namespace Terminals.Plugins.SshNet
                 this.caretTimer.Stop();
                 this.caretTimer.Dispose();
                 this.terminalFont.Dispose();
+                this.terminalBoldFont.Dispose();
+                this.terminalItalicFont.Dispose();
+                this.terminalBoldItalicFont.Dispose();
+                if (this.frameCache != null)
+                {
+                    this.frameCache.Dispose();
+                    this.frameCache = null;
+                }
             }
 
             base.Dispose(disposing);
         }
 
+        protected override void OnPreviewKeyDown(PreviewKeyDownEventArgs e)
+        {
+            if (e.Control || e.Alt)
+            {
+                Keys key = e.KeyCode;
+                if ((key >= Keys.A && key <= Keys.Z) || (key >= Keys.D0 && key <= Keys.D9))
+                    e.IsInputKey = true;
+            }
+
+            base.OnPreviewKeyDown(e);
+        }
+
         protected override bool IsInputKey(Keys keyData)
         {
-            switch (keyData & Keys.KeyCode)
+            Keys key = keyData & Keys.KeyCode;
+            if ((keyData & Keys.Control) != 0 || (keyData & Keys.Alt) != 0)
+            {
+                if ((key >= Keys.A && key <= Keys.Z) || (key >= Keys.D0 && key <= Keys.D9))
+                    return true;
+            }
+
+            switch (key)
             {
                 case Keys.Left:
                 case Keys.Right:
@@ -234,13 +279,44 @@ namespace Terminals.Plugins.SshNet
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
-            this.PaintTerminal(e.Graphics);
+            if (this.frameCache != null)
+                e.Graphics.DrawImageUnscaled(this.frameCache, 0, 0);
+            else
+                this.PaintTerminal(e.Graphics, paintCaret: false);
+
+            if (this.Focused && this.caretVisible)
+                this.PaintCaretOverlay(e.Graphics);
         }
 
         protected override void OnKeyPress(KeyPressEventArgs e)
         {
             if (char.IsControl(e.KeyChar))
+            {
+                if ((Control.ModifierKeys & Keys.Control) != 0
+                    && e.KeyChar > 0
+                    && e.KeyChar < 32)
+                {
+                    char letter = (char)('A' + e.KeyChar - 1);
+                    byte[] ctrlSequence;
+                    if (SshTerminalKeyInput.TryGetLetterSequence(
+                        this.session.Controller,
+                        letter,
+                        true,
+                        (Control.ModifierKeys & Keys.Shift) != 0,
+                        out ctrlSequence))
+                    {
+                        string toSend = SshTerminalKeyInput.BytesToSendString(ctrlSequence);
+                        if (!string.IsNullOrEmpty(toSend))
+                        {
+                            this.sendInput(toSend);
+                            e.Handled = true;
+                            return;
+                        }
+                    }
+                }
+
                 return;
+            }
 
             byte[] sequence;
             if (SshTerminalKeyInput.TryGetLetterSequence(
@@ -268,6 +344,14 @@ namespace Terminals.Plugins.SshNet
             if (keyData == (Keys.Control | Keys.V) || keyData == (Keys.Shift | Keys.Insert))
             {
                 if (this.TryPasteFromClipboard())
+                    return true;
+            }
+
+            bool control = (keyData & Keys.Control) != 0;
+            bool alt = (keyData & Keys.Alt) != 0;
+            if (control || alt)
+            {
+                if (this.TrySendKeySequence(keyData, out string _))
                     return true;
             }
 
@@ -304,25 +388,47 @@ namespace Terminals.Plugins.SshNet
                 return;
             }
 
-            byte[] sequence;
-            if (SshTerminalKeyInput.TryGetSequence(
-                this.session.Controller,
-                e.KeyCode,
-                e.Control,
-                e.Shift,
-                out sequence))
+            if (e.KeyCode == Keys.Back)
             {
-                string toSend = SshTerminalKeyInput.BytesToSendString(sequence);
-                if (!string.IsNullOrEmpty(toSend))
+                if (this.TrySendKeySequence(
+                    e.KeyCode | (e.Shift ? Keys.Shift : Keys.None),
+                    out string backspace))
                 {
-                    this.sendInput(toSend);
+                    this.sendInput(backspace);
                     e.SuppressKeyPress = true;
                     e.Handled = true;
                     return;
                 }
             }
 
+            if (this.TrySendKeySequence(
+                (e.KeyCode | (e.Control ? Keys.Control : Keys.None) | (e.Shift ? Keys.Shift : Keys.None) | (e.Alt ? Keys.Alt : Keys.None)),
+                out string toSend))
+            {
+                this.sendInput(toSend);
+                e.SuppressKeyPress = true;
+                e.Handled = true;
+                return;
+            }
+
             base.OnKeyDown(e);
+        }
+
+        private bool TrySendKeySequence(Keys keyData, out string toSend)
+        {
+            toSend = null;
+            Keys key = keyData & Keys.KeyCode;
+            bool control = (keyData & Keys.Control) != 0;
+            bool shift = (keyData & Keys.Shift) != 0;
+            bool alt = (keyData & Keys.Alt) != 0;
+
+            return SshTerminalKeyInput.TrySendFromKeyEvent(
+                this.session.Controller,
+                key,
+                control,
+                shift,
+                alt,
+                out toSend);
         }
 
         private void OnHandleCreated(object sender, EventArgs e)
@@ -359,6 +465,7 @@ namespace Terminals.Plugins.SshNet
         {
             this.followTail = false;
             this.viewTopRow = e.NewValue;
+            this.RebuildFrameCache();
             this.Invalidate();
         }
 
@@ -371,6 +478,7 @@ namespace Terminals.Plugins.SshNet
             this.followTail = false;
             this.viewTopRow = Math.Max(0, Math.Min(this.scrollBar.Maximum, this.viewTopRow + delta));
             this.scrollBar.Value = Math.Min(this.scrollBar.Maximum, this.viewTopRow);
+            this.RebuildFrameCache();
             this.Invalidate();
         }
 
@@ -382,24 +490,36 @@ namespace Terminals.Plugins.SshNet
                 return;
             }
 
-            if (!this.renderTimer.Enabled)
+            if (this.InvokeRequired)
             {
-                if (this.InvokeRequired)
-                    this.BeginInvoke(new Action(this.StartRenderTimer));
-                else
-                    this.StartRenderTimer();
+                this.BeginInvoke(new Action(this.ScheduleRender));
+                return;
             }
-        }
 
-        private void StartRenderTimer()
-        {
-            if (!this.IsDisposed)
+            int pendingChars;
+            lock (this.pendingLock)
+                pendingChars = this.pendingOutput.Length;
+
+            if (pendingChars >= CoalescedRenderThresholdChars)
+            {
+                if (!this.renderTimer.Enabled && !this.IsDisposed)
+                    this.renderTimer.Start();
+                return;
+            }
+
+            this.DrainAndRender();
+            if (!this.renderTimer.Enabled && !this.IsDisposed)
                 this.renderTimer.Start();
         }
 
         private void OnRenderTimerTick(object sender, EventArgs e)
         {
             this.DrainAndRender();
+            lock (this.pendingLock)
+            {
+                if (this.pendingOutput.Length == 0)
+                    this.renderTimer.Stop();
+            }
         }
 
         private void DrainAndRender()
@@ -419,30 +539,56 @@ namespace Terminals.Plugins.SshNet
 
             this.session.Push(chunk);
 
-            if (this.session.ConsumeChangedFlag() || chunk.Length > 0)
-            {
-                this.UpdateScrollRange();
-                if (this.followTail)
-                    this.viewTopRow = this.scrollBar.Maximum;
+            if (!this.session.ConsumeChangedFlag())
+                return;
 
-                this.Invalidate();
-            }
+            int viewTopBefore = this.viewTopRow;
+            this.UpdateScrollRange();
+            if (this.followTail)
+                this.viewTopRow = this.scrollBar.Maximum;
+
+            bool scrolled = this.viewTopRow != viewTopBefore;
+            if (this.TryRebuildFrameCacheIncremental(chunk, scrolled))
+                return;
+
+            this.RebuildFrameCache();
+            this.Invalidate();
         }
 
         private void OnTerminalResize(object sender, EventArgs e)
         {
+            this.InvalidateCellMetrics();
             this.ScheduleTerminalResize();
         }
 
         private void OnTerminalLayout(object sender, LayoutEventArgs e)
         {
+            this.InvalidateCellMetrics();
             this.ScheduleTerminalResize();
+        }
+
+        private void InvalidateCellMetrics()
+        {
+            this.cachedMetricsWidth = -1;
+            this.cachedMetricsHeight = -1;
         }
 
         private void ScheduleTerminalResize()
         {
             this.resizeDebounceTimer.Stop();
             this.resizeDebounceTimer.Start();
+        }
+
+        private void EnsureCellMetrics()
+        {
+            int width = this.GetPaintableWidth();
+            int height = this.DisplayRectangle.Height;
+            if (width == this.cachedMetricsWidth && height == this.cachedMetricsHeight && this.cellWidth > 0)
+                return;
+
+            this.RefreshCellMetrics();
+            this.cachedMetricsWidth = width;
+            this.cachedMetricsHeight = height;
         }
 
         private void RefreshCellMetrics()
@@ -472,70 +618,140 @@ namespace Terminals.Plugins.SshNet
             return Math.Max(0, width);
         }
 
-        private static int MeasureTextWidth(string text, Font font)
+        private Font GetSpanFont(LayoutSpan span)
         {
-            if (string.IsNullOrEmpty(text))
-                return 0;
-
-            return TextRenderer.MeasureText(
-                text,
-                font,
-                Size.Empty,
-                TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix).Width;
-        }
-
-        private static Font CreateSpanFont(Font baseFont, LayoutSpan span)
-        {
-            FontStyle style = FontStyle.Regular;
+            if (span.Bold && span.Italic)
+                return this.terminalBoldItalicFont;
             if (span.Bold)
-                style |= FontStyle.Bold;
+                return this.terminalBoldFont;
             if (span.Italic)
-                style |= FontStyle.Italic;
-
-            return style == FontStyle.Regular ? baseFont : new Font(baseFont, style);
+                return this.terminalItalicFont;
+            return this.terminalFont;
         }
 
-        private static int GetPixelXForColumn(LayoutRow layoutRow, int targetColumn, Font baseFont)
+        private int GetVisibleCellCount()
         {
-            if (layoutRow == null || layoutRow.Spans == null)
-                return targetColumn * MeasureMonospaceCellWidth(baseFont);
+            this.EnsureCellMetrics();
+            return Math.Max(1, this.Columns) * Math.Max(1, this.Rows);
+        }
 
-            int column = 0;
-            int x = 0;
-            foreach (LayoutSpan span in layoutRow.Spans)
+        private static bool IsLikelyLocalEchoChunk(string chunk)
+        {
+            if (string.IsNullOrEmpty(chunk) || chunk.Length > PartialRepaintMaxChunkChars)
+                return false;
+
+            for (int i = 0; i < chunk.Length; i++)
             {
-                string text = span.Text ?? string.Empty;
-                if (text.Length == 0)
-                    continue;
-
-                if (span.Hidden)
-                {
-                    column += text.Length;
-                    continue;
-                }
-
-                Font spanFont = null;
-                try
-                {
-                    spanFont = CreateSpanFont(baseFont, span);
-                    if (column + text.Length > targetColumn)
-                    {
-                        int offsetInSpan = Math.Max(0, targetColumn - column);
-                        x += MeasureTextWidth(text.Substring(0, offsetInSpan), spanFont);
-                        return x;
-                    }
-
-                    x += MeasureTextWidth(text, spanFont);
-                    column += text.Length;
-                }
-                finally
-                {
-                    if (!ReferenceEquals(spanFont, baseFont))
-                        spanFont.Dispose();
-                }
+                char c = chunk[i];
+                if (c == '\x1b' || c == '\x9b')
+                    return false;
+                if (c < 32 && c != '\r' && c != '\n' && c != '\t' && c != '\b')
+                    return false;
             }
 
-            return x;
+            return true;
+        }
+
+        private bool TryRebuildFrameCacheIncremental(string chunk, bool scrolled)
+        {
+            if (scrolled
+                || this.GetVisibleCellCount() <= FullRepaintCellThreshold
+                || !IsLikelyLocalEchoChunk(chunk))
+            {
+                return false;
+            }
+
+            this.EnsureFrameCacheBitmap();
+            if (this.frameCache == null)
+                return false;
+
+            int cursorViewportRow = this.GetCursorViewportRow();
+            if (cursorViewportRow < 0)
+                return false;
+
+            var controller = this.session.Controller;
+            int visibleRows = Math.Max(1, controller.VisibleRows);
+            int firstRow = Math.Max(0, cursorViewportRow - PartialRepaintRowMargin);
+            int lastRow = Math.Min(visibleRows - 1, cursorViewportRow + PartialRepaintRowMargin);
+            int bandTop = firstRow * this.cellHeight;
+            int bandHeight = (lastRow - firstRow + 1) * this.cellHeight;
+            int width = this.frameCacheWidth;
+            int spanCount = lastRow - firstRow + 1;
+            List<LayoutRow> rows = controller.GetPageSpans(
+                this.viewTopRow + firstRow,
+                spanCount,
+                Math.Max(1, controller.VisibleColumns),
+                null);
+            if (rows == null || rows.Count == 0)
+                return false;
+
+            using (Graphics graphics = Graphics.FromImage(this.frameCache))
+            {
+                graphics.FillRectangle(Brushes.Black, 0, bandTop, width, bandHeight);
+                this.PaintLayoutRows(graphics, rows, 0, rows.Count - 1, firstRow);
+            }
+
+            this.Invalidate(new Rectangle(0, bandTop, width, bandHeight));
+            return true;
+        }
+
+        private int GetCursorViewportRow()
+        {
+            var controller = this.session.Controller;
+            int row = controller.ViewPort.CursorPosition.Row
+                + (controller.ViewPort.TopRow - this.viewTopRow);
+            int visibleRows = Math.Max(1, controller.VisibleRows);
+            if (row < 0 || row >= visibleRows)
+                return -1;
+
+            return row;
+        }
+
+        private List<LayoutRow> FetchLayoutRows()
+        {
+            var controller = this.session.Controller;
+            int paintColumns = Math.Max(1, controller.VisibleColumns);
+            int paintRows = Math.Max(1, controller.VisibleRows);
+            return controller.GetPageSpans(this.viewTopRow, paintRows, paintColumns, null);
+        }
+
+        private void EnsureFrameCacheBitmap()
+        {
+            int width = this.GetPaintableWidth();
+            int height = Math.Max(1, this.DisplayRectangle.Height);
+            if (width <= 0 || this.cellHeight <= 0)
+                return;
+
+            if (this.frameCache != null
+                && this.frameCacheWidth == width
+                && this.frameCacheHeight == height)
+            {
+                return;
+            }
+
+            if (this.frameCache != null)
+                this.frameCache.Dispose();
+
+            this.frameCache = new Bitmap(width, height);
+            this.frameCacheWidth = width;
+            this.frameCacheHeight = height;
+
+            using (Graphics graphics = Graphics.FromImage(this.frameCache))
+            {
+                graphics.Clear(Color.Black);
+            }
+        }
+
+        private void RebuildFrameCache()
+        {
+            this.EnsureFrameCacheBitmap();
+            if (this.frameCache == null)
+                return;
+
+            using (Graphics graphics = Graphics.FromImage(this.frameCache))
+            {
+                this.PaintTerminal(graphics, paintCaret: false);
+            }
         }
 
         private bool TryPasteFromClipboard()
@@ -564,6 +780,7 @@ namespace Terminals.Plugins.SshNet
             this.resizeDebounceTimer.Stop();
             this.SyncSessionGeometry();
             this.UpdateScrollRange();
+            this.RebuildFrameCache();
             this.Invalidate();
 
             if (this.TerminalResized != null)
@@ -600,34 +817,40 @@ namespace Terminals.Plugins.SshNet
             }
         }
 
-        private void PaintTerminal(Graphics graphics)
+        private void PaintTerminal(Graphics graphics, bool paintCaret)
         {
-            graphics.Clear(Color.Black);
             int paintWidth = this.GetPaintableWidth();
+            int paintHeight = Math.Max(1, this.DisplayRectangle.Height);
             if (paintWidth <= 0 || this.cellHeight <= 0)
                 return;
 
-            var controller = this.session.Controller;
-            int paintColumns = Math.Max(1, Math.Max(controller.VisibleColumns, this.Columns));
-            int paintRows = Math.Max(1, controller.VisibleRows);
-            List<LayoutRow> rows = controller.GetPageSpans(
-                this.viewTopRow,
-                paintRows,
-                paintColumns,
-                null);
-
+            graphics.Clear(Color.Black);
+            this.EnsureCellMetrics();
+            List<LayoutRow> rows = this.FetchLayoutRows();
             if (rows == null)
                 return;
 
-            float y = 0;
-            for (int rowIndex = 0; rowIndex < rows.Count; rowIndex++)
+            this.PaintLayoutRows(graphics, rows, 0, rows.Count - 1, 0);
+
+            if (paintCaret && this.Focused && this.caretVisible)
+                this.PaintCaretOverlay(graphics);
+        }
+
+        private void PaintLayoutRows(Graphics graphics, List<LayoutRow> rows, int firstRow, int lastRow, int viewportRowOffset)
+        {
+            if (rows == null || rows.Count == 0)
+                return;
+
+            firstRow = Math.Max(0, firstRow);
+            lastRow = Math.Min(rows.Count - 1, lastRow);
+            const TextFormatFlags textFlags = TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding;
+
+            for (int rowIndex = firstRow; rowIndex <= lastRow; rowIndex++)
             {
                 LayoutRow row = rows[rowIndex];
+                int y = (viewportRowOffset + rowIndex) * this.cellHeight;
                 if (row == null || row.Spans == null)
-                {
-                    y += this.cellHeight;
                     continue;
-                }
 
                 int x = 0;
                 foreach (LayoutSpan span in row.Spans)
@@ -635,51 +858,30 @@ namespace Terminals.Plugins.SshNet
                     if (span == null || span.Hidden)
                         continue;
 
-                    Color backColor = VtNetColorHelper.ParseBackground(span.BackgroundColor);
-                    Color foreColor = VtNetColorHelper.ParseForeground(span.ForgroundColor);
                     string text = span.Text ?? string.Empty;
-
                     if (text.Length == 0)
                         continue;
 
-                    Font spanFont = null;
-                    try
-                    {
-                        spanFont = CreateSpanFont(this.terminalFont, span);
-                        int spanWidth = MeasureTextWidth(text, spanFont);
-                        var cellRect = new Rectangle(x, (int)y, spanWidth, this.cellHeight);
-                        TextRenderer.DrawText(
-                            graphics,
-                            text,
-                            spanFont,
-                            cellRect,
-                            foreColor,
-                            backColor,
-                            TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding);
-                        x += spanWidth;
-                    }
-                    finally
-                    {
-                        if (!ReferenceEquals(spanFont, this.terminalFont))
-                            spanFont.Dispose();
-                    }
+                    Color backColor = VtNetColorHelper.ParseBackground(span.BackgroundColor);
+                    Color foreColor = VtNetColorHelper.ParseForeground(span.ForgroundColor);
+                    int spanWidth = text.Length * this.cellWidth;
+                    var cellRect = new Rectangle(x, y, spanWidth, this.cellHeight);
+                    TextRenderer.DrawText(
+                        graphics,
+                        text,
+                        this.GetSpanFont(span),
+                        cellRect,
+                        foreColor,
+                        backColor,
+                        textFlags);
+                    x += spanWidth;
                 }
-
-                y += this.cellHeight;
-            }
-
-            if (this.Focused && this.caretVisible)
-            {
-                this.PaintCaret(graphics, controller, rows, paintWidth);
             }
         }
 
-        private void PaintCaret(
-            Graphics graphics,
-            VirtualTerminalController controller,
-            List<LayoutRow> rows,
-            int paintWidth)
+        private void PaintCaretOverlay(Graphics graphics)
         {
+            var controller = this.session.Controller;
             if (!controller.CursorState.ShowCursor)
                 return;
 
@@ -690,10 +892,9 @@ namespace Terminals.Plugins.SshNet
                 return;
 
             int column = Math.Max(0, Math.Min(cursor.Column, Math.Max(0, controller.VisibleColumns - 1)));
-            LayoutRow layoutRow = row < rows.Count ? rows[row] : null;
-            int x = GetPixelXForColumn(layoutRow, column, this.terminalFont);
+            int x = column * this.cellWidth;
             int y = row * this.cellHeight;
-            if (x >= paintWidth)
+            if (x >= this.GetPaintableWidth())
                 return;
 
             using (var brush = new SolidBrush(this.ForeColor))
@@ -713,16 +914,7 @@ namespace Terminals.Plugins.SshNet
             if (row < 0 || row >= this.Rows)
                 return;
 
-            int paintColumns = Math.Max(1, Math.Max(controller.VisibleColumns, this.Columns));
-            int paintRows = Math.Max(1, controller.VisibleRows);
-            List<LayoutRow> rows = controller.GetPageSpans(
-                this.viewTopRow,
-                paintRows,
-                paintColumns,
-                null);
-            LayoutRow layoutRow = rows != null && row < rows.Count ? rows[row] : null;
-            int x = GetPixelXForColumn(layoutRow, cursor.Column, this.terminalFont);
-
+            int x = cursor.Column * this.cellWidth;
             var rect = new Rectangle(
                 x,
                 row * this.cellHeight,
