@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Terminals.Plugins.SshNet</RootNamespace>
     <AssemblyName>Terminals.Plugins.SshNet</AssemblyName>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
   </PropertyGroup>
@@ -33,6 +33,11 @@
   <ItemGroup>
     <Reference Include="Renci.SshNet">
       <HintPath>..\packages\SSH.NET.2020.0.2\lib\net40\Renci.SshNet.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="VtNetCore">
+      <HintPath>..\packages\VtNetCore.1.0.30\lib\net46\VtNetCore.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
@@ -46,8 +51,6 @@
       <Link>Properties\Common.AssemblyInfo.cs</Link>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="AnsiStyle.cs" />
-    <Compile Include="AnsiTerminalScreen.cs" />
     <Compile Include="SshHostKeyFingerprint.cs" />
     <Compile Include="SshSessionCredentials.cs" />
     <Compile Include="SshHostKeyTrustDialog.cs" />
@@ -68,8 +71,11 @@
     <Compile Include="SshNetSessionConfigurator.cs" />
     <Compile Include="SshNetShellStreamHelper.cs" />
     <Compile Include="SshTerminalControl.cs" />
+    <Compile Include="SshTerminalKeyInput.cs" />
     <Compile Include="SshUiThread.cs" />
+    <Compile Include="SshVtSession.cs" />
     <Compile Include="TerminalsSshNetExport.cs" />
+    <Compile Include="VtNetColorHelper.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Terminals.Common\Terminals.Common.csproj">

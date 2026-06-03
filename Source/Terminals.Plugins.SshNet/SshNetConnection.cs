@@ -34,6 +34,9 @@ namespace Terminals.Plugins.SshNet
         private const uint MaxTerminalColumns = 260;
         private const uint MaxTerminalRows = 100;
 
+        private int lastPtyColumns = -1;
+        private int lastPtyRows = -1;
+
         private int connectGeneration;
         private int sessionGeneration;
         private volatile bool isConnecting;
@@ -138,6 +141,7 @@ namespace Terminals.Plugins.SshNet
 
                             this.terminalControl.FocusTerminal();
                             this.Update();
+                            this.SchedulePostConnectTerminalSync();
 
                             if (this.readLoopPendingStart)
                             {
@@ -268,6 +272,7 @@ namespace Terminals.Plugins.SshNet
             uint widthPixels;
             uint heightPixels;
             this.GetShellGeometryOnUiThread(owner, out columns, out rows, out widthPixels, out heightPixels);
+            this.ApplyTerminalSessionSizeOnUiThread(owner, columns, rows);
 
             this.shellStream = this.sshClient.CreateShellStream(
                 SshNetShellStreamHelper.DefaultTerminalType,
@@ -322,6 +327,32 @@ namespace Terminals.Plugins.SshNet
                 this.sshClient.Connect();
         }
 
+        private void ApplyTerminalSessionSizeOnUiThread(IWin32Window owner, uint columns, uint rows)
+        {
+            if (this.IsDisposed || this.terminalControl.IsDisposed)
+                return;
+
+            try
+            {
+                Control invokeTarget = owner as Control;
+                if (invokeTarget == null)
+                    invokeTarget = this.IsHandleCreated ? (Control)this : this.terminalControl;
+                if (!invokeTarget.IsHandleCreated)
+                {
+                    this.terminalControl.ApplySessionSize((int)columns, (int)rows, force: true);
+                    return;
+                }
+
+                SshUiThread.RunOnOwner(
+                    invokeTarget,
+                    () => this.terminalControl.ApplySessionSize((int)columns, (int)rows, force: true));
+            }
+            catch (Exception exception)
+            {
+                Logging.Error("SSH: unable to sync VtNetCore size with PTY.", exception);
+            }
+        }
+
         private void GetShellGeometryOnUiThread(
             IWin32Window owner,
             out uint columns,
@@ -349,12 +380,12 @@ namespace Terminals.Plugins.SshNet
                     invokeTarget,
                     () =>
                     {
-                        int charWidth = Math.Max(1, System.Windows.Forms.TextRenderer.MeasureText("W", this.terminalControl.Font).Width);
-                        int charHeight = Math.Max(1, this.terminalControl.Font.Height);
-                        uint cols = ClampTerminalDimension((uint)this.terminalControl.Columns, 20, MaxTerminalColumns);
-                        uint rowCount = ClampTerminalDimension((uint)this.terminalControl.Rows, 8, MaxTerminalRows);
-                        cols = Math.Max(SshNetShellStreamHelper.DefaultShellColumns, cols);
-                        rowCount = Math.Max(SshNetShellStreamHelper.DefaultShellRows, rowCount);
+                        this.terminalControl.GetTerminalDimensions(out int measuredColumns, out int measuredRows);
+                        this.terminalControl.GetCellPixelSize(out int charWidth, out int charHeight);
+                        charWidth = Math.Max(1, charWidth);
+                        charHeight = Math.Max(1, charHeight);
+                        uint cols = ClampTerminalDimension((uint)measuredColumns, 20, MaxTerminalColumns);
+                        uint rowCount = ClampTerminalDimension((uint)measuredRows, 8, MaxTerminalRows);
                         return Tuple.Create(
                             cols,
                             rowCount,
@@ -393,11 +424,50 @@ namespace Terminals.Plugins.SshNet
                 return;
             }
 
-            uint columns = ClampTerminalDimension((uint)this.terminalControl.Columns, 20, MaxTerminalColumns);
-            uint rows = ClampTerminalDimension((uint)this.terminalControl.Rows, 8, MaxTerminalRows);
-            SshNetSessionConfigurator.TryResizePty(this.shellStream, columns, rows);
+            this.ResizeTerminalToMatchUi("layout");
+        }
+
+        private void SchedulePostConnectTerminalSync()
+        {
+            this.BeginInvoke(new Action(() => this.ResizeTerminalToMatchUi("post-connect")));
+            var layoutTimer = new System.Windows.Forms.Timer { Interval = 250 };
+            layoutTimer.Tick += (sender, args) =>
+            {
+                layoutTimer.Stop();
+                layoutTimer.Dispose();
+                if (!this.IsDisposed && this.Connected)
+                    this.ResizeTerminalToMatchUi("post-connect-delayed");
+            };
+            layoutTimer.Start();
+        }
+
+        private void ResizeTerminalToMatchUi(string reason)
+        {
+            if (this.IsDisposed || this.shellStream == null || this.sshClient == null || !this.sshClient.IsConnected)
+                return;
+
+            int columns;
+            int rows;
+            this.terminalControl.GetTerminalDimensions(out columns, out rows);
+            uint cols = ClampTerminalDimension((uint)columns, 20, MaxTerminalColumns);
+            uint rowCount = ClampTerminalDimension((uint)rows, 8, MaxTerminalRows);
+            if ((int)cols == this.lastPtyColumns && (int)rowCount == this.lastPtyRows)
+                return;
+
+            this.lastPtyColumns = (int)cols;
+            this.lastPtyRows = (int)rowCount;
+            this.terminalControl.ApplySessionSize((int)cols, (int)rowCount);
+            if (SshNetSessionConfigurator.TryResizePty(this.shellStream, cols, rowCount))
+            {
+                Logging.Info(string.Format(
+                    "SSH: terminal resized ({0}) to PTY {1}x{2}.",
+                    reason,
+                    cols,
+                    rowCount));
+            }
+
             this.terminalControl.FlushPendingOutput();
-            this.terminalControl.FocusTerminal();
+            this.terminalControl.Invalidate();
         }
 
         private IWin32Window GetDialogOwner()
@@ -413,13 +483,10 @@ namespace Terminals.Plugins.SshNet
 
         private void OnTerminalResized(object sender, EventArgs e)
         {
-            if (!this.Connected)
+            if (this.shellStream == null || this.sshClient == null || !this.sshClient.IsConnected)
                 return;
 
-            SshNetSessionConfigurator.TryResizePty(
-                this.shellStream,
-                ClampTerminalDimension((uint)this.terminalControl.Columns, 20, MaxTerminalColumns),
-                ClampTerminalDimension((uint)this.terminalControl.Rows, 8, MaxTerminalRows));
+            this.ResizeTerminalToMatchUi("window-resize");
         }
 
         private void StartReadLoop(int session, bool hadInitialOutput)
@@ -599,6 +666,8 @@ namespace Terminals.Plugins.SshNet
 
         private void CleanupSessionForReconnect()
         {
+            this.lastPtyColumns = -1;
+            this.lastPtyRows = -1;
             this.readLoopPendingStart = false;
             this.readLoopHadInitialOutput = false;
             this.pendingInitialShellText = null;
