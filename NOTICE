@@ -1,0 +1,18 @@
+Terminals (fork by oliwier-drop)
+==================================
+
+This repository combines:
+
+1. Microsoft Shared Source Community License (MS-CL)
+   Original Terminals code — see LICENSE.md
+
+2. GNU General Public License v3.0 (GPL-3.0)
+   Fork-authored code by oliwier-drop and contributors — see LICENSE-GPLv3.md
+
+Fork-authored scope (path list): FORK-AUTHORED.md
+
+Primary GPL-3.0 components:
+  - Source/Terminals.Plugins.SshNet/
+  - Source/Tests/SshNet/
+
+Maintainer: oliwier-drop (https://github.com/oliwier-drop/Terminals)

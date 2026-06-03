@@ -2,12 +2,18 @@
 
 Copyright (c) oliwier-drop and contributors (fork-specific changes).
 
-The following parts of **this repository** are licensed under the **GNU General Public License v3.0** (GPL-3.0):
+The following parts of **this repository** are licensed under the **GNU General Public License v3.0** (GPL-3.0).
 
-- `Source/Terminals.Plugins.SshNet/` (entire plugin, including SSH.NET integration)
-- `Source/Tests/SshNet/` (tests for the above)
-- Fork-specific changes in other files where noted in commit history or file headers (e.g. extensions to `Terminals.Plugins.Putty` for shared SSH options used by the SSH.NET plugin)
-- This file and [Requirements.md](Requirements.md) when distributed as part of the fork
+**Authoritative path list:** [FORK-AUTHORED.md](FORK-AUTHORED.md)  
+**Short notice for distributions:** [NOTICE](NOTICE)
+
+Summary:
+
+- `Source/Terminals.Plugins.SshNet/` (entire plugin)
+- `Source/Tests/SshNet/` (tests for the plugin)
+- New integration files listed in FORK-AUTHORED.md (Common interfaces, credential UI, fork docs)
+- Source files marked with `SPDX-License-Identifier: GPL-3.0-or-later` in the header
+- Fork-specific **changes** inside MS-CL upstream files: see FORK-AUTHORED.md (“modified for integration”); original files remain MS-CL
 
 You may use, modify, and redistribute this code under the terms of GPL-3.0. A copy of the license is available at:
 

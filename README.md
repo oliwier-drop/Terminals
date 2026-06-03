@@ -10,12 +10,13 @@ Work in progress: the `Terminals.Plugins.SshNet` plugin and related integration.
 
 The SSH.NET plugin uses **SSH.NET 2020.0.2** (upgraded from 2016.1.0) for improved algorithms and key support. Authentication supports password, private keys (`KeyFile` / `KeyTag` + application SSH key store), and keyboard-interactive prompts. Host keys are verified against a persisted known-hosts file with a trust prompt (no silent auto-trust). PuTTY Pageant and X11 forwarding are not supported by this plugin.
 
-### SSH.NET plugin docs
+### Roadmap
 
-| Document | Description |
-|----------|-------------|
-| [TERMINAL-EMULATION.md](Source/Terminals.Plugins.SshNet/TERMINAL-EMULATION.md) | Current terminal model (xterm control sequences, PTY sizing, PuTTY vs SSH.NET) |
-| [ROADMAP-VTNETCORE.md](Source/Terminals.Plugins.SshNet/ROADMAP-VTNETCORE.md) | Phase 2 notes: VtNetCore migration (completed) |
+Fork features and status (SSH.NET, terminal renderer, performance): **[ROADMAP.md](ROADMAP.md)**.
+
+### Which code is fork-authored (GPL-3.0)
+
+Open-source components written for this fork are listed in **[FORK-AUTHORED.md](FORK-AUTHORED.md)**. GPL sources are marked with `SPDX-License-Identifier: GPL-3.0-or-later` at the top of each file. See also [NOTICE](NOTICE) and [LICENSE-GPLv3.md](LICENSE-GPLv3.md).
 
 The SSH.NET plugin uses **VtNetCore** for xterm-grade in-process display (.NET Framework 4.8). For PuTTY-identical behavior, use the legacy **PuTTY** SSH connection type.
 
