@@ -7,7 +7,7 @@ This document describes what you need to **build** and **run** this fork of Term
 | Requirement | Notes |
 |-------------|--------|
 | **Operating system** | Windows (same as upstream Terminals). Tested on Windows 10/11. |
-| **.NET Framework** | **4.0 or later** (4.8 recommended). The solution targets .NET Framework 4.0; newer Windows versions include a compatible runtime. |
+| **.NET Framework** | **4.8** (required). The main app and SSH.NET plugin target .NET Framework 4.8. |
 | **PuTTY** (optional) | Required only for **Telnet** (`putty.exe` in `Resources` or PATH). Not required for **SSH** (SSH.NET plugin). |
 | **RDP / VNC / other protocols** | Same dependencies as [upstream system requirements](Docs/System-Requirements.md) for each protocol you use. |
 
@@ -23,7 +23,7 @@ This document describes what you need to **build** and **run** this fork of Term
 |-------------|--------|
 | **OS** | Windows x64 (recommended for tooling). |
 | **MSBuild** | Visual Studio 2022 **Build Tools** or full Visual Studio with **.NET desktop development** workload. |
-| **.NET Framework targeting pack** | **4.8** (installed with VS Build Tools). Projects declare `v4.0`; build with `/p:TargetFrameworkVersion=v4.8` on modern toolchains (see below). |
+| **.NET Framework targeting pack** | **4.8** (installed with VS Build Tools). Projects target `v4.8`. |
 | **.NET SDK** (optional) | SDK 8.x is useful for `dotnet msbuild` and general tooling; not strictly required if you use VS MSBuild. |
 | **NuGet** | Restore packages before the first build (`nuget restore` on `Source/Terminals.sln`). |
 
@@ -32,6 +32,7 @@ This document describes what you need to **build** and **run** this fork of Term
 | Package | Used by |
 |---------|---------|
 | [SSH.NET](https://www.nuget.org/packages/SSH.NET) **2020.0.2** | `Terminals.Plugins.SshNet` |
+| [VtNetCore](https://www.nuget.org/packages/VtNetCore) **1.0.30** | `Terminals.Plugins.SshNet` (terminal emulation) |
 | log4net, Moq, Entity Framework, etc. | See `packages.config` in each project under `Source/` |
 
 ### Build commands
@@ -42,11 +43,10 @@ From the repository root (PowerShell):
 # 1. Restore NuGet packages (once, or after clone)
 nuget restore Source\Terminals.sln
 
-# 2. Build Debug (recommended on Build Tools without .NET 4.0 targeting pack)
+# 2. Build Debug
 & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe" `
   Source\Terminals.sln `
   /p:Configuration=Debug `
-  /p:TargetFrameworkVersion=v4.8 `
   /m
 ```
 

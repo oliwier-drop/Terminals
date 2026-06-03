@@ -15,9 +15,9 @@ The SSH.NET plugin uses **SSH.NET 2020.0.2** (upgraded from 2016.1.0) for improv
 | Document | Description |
 |----------|-------------|
 | [TERMINAL-EMULATION.md](Source/Terminals.Plugins.SshNet/TERMINAL-EMULATION.md) | Current terminal model (xterm control sequences, PTY sizing, PuTTY vs SSH.NET) |
-| [ROADMAP-VTNETCORE.md](Source/Terminals.Plugins.SshNet/ROADMAP-VTNETCORE.md) | Planned phase 2: VtNetCore / XTerm.NET and framework upgrade for PuTTY-grade emulation |
+| [ROADMAP-VTNETCORE.md](Source/Terminals.Plugins.SshNet/ROADMAP-VTNETCORE.md) | Phase 2 notes: VtNetCore migration (completed) |
 
-For PuTTY-identical display today, use the legacy **PuTTY** SSH connection type.
+The SSH.NET plugin uses **VtNetCore** for xterm-grade in-process display (.NET Framework 4.8). For PuTTY-identical behavior, use the legacy **PuTTY** SSH connection type.
 
 ## Upstream project
 
