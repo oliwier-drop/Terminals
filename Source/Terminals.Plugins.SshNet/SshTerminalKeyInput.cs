@@ -1,3 +1,6 @@
+﻿// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (c) oliwier-drop and contributors — fork-authored code.
+// See LICENSE-GPLv3.md and FORK-AUTHORED.md at the repository root.
 using System.Text;
 using System.Windows.Forms;
 using VtNetCore.VirtualTerminal;
@@ -36,12 +39,53 @@ namespace Terminals.Plugins.SshNet
             if (controller == null || keyChar == '\0')
                 return false;
 
-            if (keyChar < 'a' || keyChar > 'z')
+            if (keyChar >= 'a' && keyChar <= 'z')
+                keyChar = char.ToUpperInvariant(keyChar);
+            else if (keyChar < 'A' || keyChar > 'Z')
                 return false;
 
-            string keyName = char.ToUpperInvariant(keyChar).ToString();
+            sequence = controller.GetKeySequence(keyChar.ToString(), control, shift);
+            return sequence != null && sequence.Length > 0;
+        }
+
+        internal static bool TryGetModifierKeySequence(
+            VirtualTerminalController controller,
+            Keys keyCode,
+            bool control,
+            bool shift,
+            bool alt,
+            out byte[] sequence)
+        {
+            sequence = null;
+            if (controller == null || (!control && !alt))
+                return false;
+
+            string keyName = MapLetterOrDigitKeyName(keyCode);
+            if (keyName == null)
+                return false;
+
             sequence = controller.GetKeySequence(keyName, control, shift);
             return sequence != null && sequence.Length > 0;
+        }
+
+        internal static bool TrySendFromKeyEvent(
+            VirtualTerminalController controller,
+            Keys keyCode,
+            bool control,
+            bool shift,
+            bool alt,
+            out string toSend)
+        {
+            toSend = null;
+            byte[] sequence;
+            if (TryGetSequence(controller, keyCode, control, shift, out sequence)
+                || TryGetModifierKeySequence(controller, keyCode, control, shift, alt, out sequence))
+            {
+                toSend = BytesToSendString(sequence);
+                return !string.IsNullOrEmpty(toSend);
+            }
+
+            return false;
         }
 
         internal static string BytesToSendString(byte[] sequence)
@@ -50,6 +94,17 @@ namespace Terminals.Plugins.SshNet
                 return null;
 
             return Encoding.UTF8.GetString(sequence);
+        }
+
+        private static string MapLetterOrDigitKeyName(Keys keyCode)
+        {
+            if (keyCode >= Keys.A && keyCode <= Keys.Z)
+                return ((char)('A' + (keyCode - Keys.A))).ToString();
+            if (keyCode >= Keys.D0 && keyCode <= Keys.D9)
+                return ((char)('0' + (keyCode - Keys.D0))).ToString();
+            if (keyCode >= Keys.NumPad0 && keyCode <= Keys.NumPad9)
+                return ((char)('0' + (keyCode - Keys.NumPad0))).ToString();
+            return null;
         }
 
         private static string MapKeyName(Keys keyCode)
