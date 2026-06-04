@@ -213,5 +213,7 @@ ModelManifest.xml
 
 
 /Source/Metro/Docs/Metro.xml
+Source/nuget.exe
+nuget.exe
 /Build/Output
 .testtools/
