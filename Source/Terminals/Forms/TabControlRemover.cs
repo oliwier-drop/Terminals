@@ -55,9 +55,9 @@ namespace Terminals
 
         private void TcTerminals_TabControlItemClosing(TabControlItemClosingEventArgs e)
         {
-            // we have to check the connection state in case tab is closing because of lost connection
-            IConnection currentConnection = this.selectionControler.CurrentConnection;
-            if (currentConnection != null && currentConnection.Connected)
+            var terminalTab = e.Item as TerminalTabControlItem;
+            var connection = terminalTab != null ? terminalTab.Connection as IConnection : null;
+            if (connection != null && connection.Connected)
             {
                 if (!this.AskToClose())
                     e.Cancel = true;

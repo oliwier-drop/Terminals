@@ -83,6 +83,19 @@ namespace Terminals.Data
             return LoadImage(favorite.ToolBarIconFile, Resources.smallterm);
         }
 
+        /// <summary>Protocol or custom toolbar icon for a favorite (same source as the favorites tree).</summary>
+        internal Image GetConnectionIcon(IFavorite favorite)
+        {
+            if (favorite == null)
+                return Connection.Terminalsicon;
+
+            var concrete = favorite as Favorite;
+            if (concrete != null)
+                return GetFavoriteIcon(concrete);
+
+            return GetProtocolImage(favorite);
+        }
+
         internal static Image LoadImage(String imageFilePath, Image defaultIcon)
         {
             try

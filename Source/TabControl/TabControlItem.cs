@@ -23,6 +23,11 @@ namespace TabControl
         private bool isDrawn = false;
         private string title = string.Empty;
         private string toolTipText = string.Empty;
+        private Image tabIcon = null;
+
+        internal Rectangle CloseGlyphRect = Rectangle.Empty;
+
+        internal bool CloseGlyphMouseOver = false;
 
         public event EventHandler Changed;
 
@@ -99,6 +104,21 @@ namespace TabControl
             }
         }
 
+        /// <summary>Optional protocol/connection icon drawn on the tab strip (left of title).</summary>
+        [DefaultValue(null)]
+        public Image TabIcon
+        {
+            get { return tabIcon; }
+            set
+            {
+                if (tabIcon == value)
+                    return;
+
+                tabIcon = value;
+                OnChanged();
+            }
+        }
+
         /// <summary>
         /// Gets and sets a value indicating if the page is selected.
         /// </summary>
@@ -165,8 +185,14 @@ namespace TabControl
 
         internal bool LocationIsInTitle(Point mouseLocation)
         {
-            bool inTitle = (this.StripRect.X + this.StripRect.Width - 1) > mouseLocation.X &&
-                            (this.StripRect.Y + this.StripRect.Height - 1) > mouseLocation.Y;
+            if (!CloseGlyphRect.IsEmpty && CloseGlyphRect.Contains(mouseLocation))
+                return false;
+
+            float titleRight = StripRect.Right - (CloseGlyphRect.IsEmpty ? 0 : CloseGlyphRect.Width + 2);
+            bool inTitle = titleRight > mouseLocation.X &&
+                            StripRect.X < mouseLocation.X &&
+                            (StripRect.Y + StripRect.Height - 1) > mouseLocation.Y &&
+                            StripRect.Y < mouseLocation.Y;
             return inTitle;
         }
 
@@ -206,6 +232,7 @@ namespace TabControl
             this.Text = item.Text;
             this.CanClose = item.CanClose;
             this.Tag = item.Tag;
+            this.TabIcon = item.TabIcon;
         }
 
         protected internal virtual void OnChanged()

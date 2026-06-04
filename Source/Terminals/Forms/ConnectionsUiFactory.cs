@@ -186,7 +186,9 @@ namespace Terminals.Forms
                 terminalTabTitle += String.Format(" ({0})", title);
             }
 
-            return new TerminalTabControlItem(terminalTabTitle);
+            var terminalTabPage = new TerminalTabControlItem(terminalTabTitle);
+            terminalTabPage.TabIcon = this.favoriteIcons.GetConnectionIcon(favorite);
+            return terminalTabPage;
         }
 
         private void TryConnectTabPage(IFavorite origin, IFavorite configured, TerminalTabControlItem terminalTabPage)

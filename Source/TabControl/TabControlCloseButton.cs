@@ -45,13 +45,18 @@ namespace TabControl
 
         public void DrawCross(Graphics g)
         {
-            if (isMouseOver)
+            DrawCross(g, crossRect, isMouseOver);
+        }
+
+        public void DrawCross(Graphics g, Rectangle rect, bool mouseOver)
+        {
+            if (mouseOver)
             {
                 Color fill = renderer.ColorTable.ButtonSelectedHighlight;
 
-                g.FillRectangle(new SolidBrush(fill), crossRect);
+                g.FillRectangle(new SolidBrush(fill), rect);
 
-                Rectangle borderRect = crossRect;
+                Rectangle borderRect = rect;
 
                 borderRect.Width--;
                 borderRect.Height--;
@@ -62,15 +67,15 @@ namespace TabControl
             using (Pen pen = new Pen(Color.Black, 1f))
             {
                 g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
-                g.DrawLine(pen, crossRect.Left + 3, crossRect.Top + 4,
-                    crossRect.Right - 6, crossRect.Bottom - 4);
-                g.DrawLine(pen, crossRect.Left + 4, crossRect.Top + 4,
-                    crossRect.Right - 5, crossRect.Bottom - 4);
+                g.DrawLine(pen, rect.Left + 3, rect.Top + 4,
+                    rect.Right - 6, rect.Bottom - 4);
+                g.DrawLine(pen, rect.Left + 4, rect.Top + 4,
+                    rect.Right - 5, rect.Bottom - 4);
 
-                g.DrawLine(pen, crossRect.Right - 6, crossRect.Top + 4,
-                    crossRect.Left + 3, crossRect.Bottom - 4);
-                g.DrawLine(pen, crossRect.Right - 5, crossRect.Top + 4,
-                    crossRect.Left + 4, crossRect.Bottom - 4);
+                g.DrawLine(pen, rect.Right - 6, rect.Top + 4,
+                    rect.Left + 3, rect.Bottom - 4);
+                g.DrawLine(pen, rect.Right - 5, rect.Top + 4,
+                    rect.Left + 4, rect.Bottom - 4);
             }
         }
 
