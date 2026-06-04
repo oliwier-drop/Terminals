@@ -51,6 +51,14 @@
       <Link>Properties\Common.AssemblyInfo.cs</Link>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Include="SshOptions.cs" />
+    <Compile Include="SshVersion.cs" />
+    <Compile Include="SshProtocol.cs" />
     <Compile Include="SshHostKeyFingerprint.cs" />
     <Compile Include="SshSessionCredentials.cs" />
     <Compile Include="SshHostKeyTrustDialog.cs" />
@@ -65,7 +73,12 @@
     <Compile Include="SshNetConnectionPlugin.cs" />
     <Compile Include="SshNetConnectionSetup.cs" />
     <Compile Include="SshNetKeyboardInteractiveHandler.cs" />
-    <Compile Include="SshNetOptionsControl.cs" />
+    <Compile Include="SshNetOptionsControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="SshNetOptionsControl.Designer.cs">
+      <DependentUpon>SshNetOptionsControl.cs</DependentUpon>
+    </Compile>
     <Compile Include="SshNetOptionsConverter.cs" />
     <Compile Include="SshNetPrivateKeyLoader.cs" />
     <Compile Include="SshNetSessionConfigurator.cs" />
@@ -95,13 +108,19 @@
       <Name>Terminals.Common</Name>
       <Private>False</Private>
     </ProjectReference>
-    <ProjectReference Include="..\Terminals.Plugins.Putty\Terminals.Plugins.Putty.csproj">
-      <Project>{449DC14A-7C3F-4BE5-BA39-4AFD1C5404E6}</Project>
-      <Name>Terminals.Plugins.Putty</Name>
-    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+    <EmbeddedResource Include="SshNetOptionsControl.resx">
+      <DependentUpon>SshNetOptionsControl.cs</DependentUpon>
+    </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="Resources\treeIcon_ssh.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

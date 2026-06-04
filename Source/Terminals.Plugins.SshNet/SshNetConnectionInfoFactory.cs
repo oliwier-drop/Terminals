@@ -7,7 +7,6 @@ using Renci.SshNet;
 using Renci.SshNet.Compression;
 using Terminals.Common.Configuration;
 using Terminals.Data;
-using Terminals.Plugins.Putty;
 
 namespace Terminals.Plugins.SshNet
 {

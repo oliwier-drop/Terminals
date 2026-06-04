@@ -13,8 +13,6 @@ using Terminals.Common.Connections;
 using Terminals.Configuration;
 using Terminals.Connections;
 using Terminals.Data;
-using Terminals.Plugins.Putty;
-
 namespace Terminals.Plugins.SshNet
 {
     internal class SshNetConnection : Connection, IDeferredConnection, IPostConnectTerminalSync, IConnectionExtra, IHandleKeyboardInput, ISettingsConsumer, ICredentialPromptConsumer

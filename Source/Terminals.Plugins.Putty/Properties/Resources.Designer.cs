@@ -91,16 +91,6 @@ namespace Terminals.Plugins.Putty.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
-        internal static System.Drawing.Bitmap treeIcon_ssh {
-            get {
-                object obj = ResourceManager.GetObject("treeIcon_ssh", resourceCulture);
-                return ((System.Drawing.Bitmap)(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Drawing.Bitmap.
-        /// </summary>
         internal static System.Drawing.Bitmap treeIcon_telnet {
             get {
                 object obj = ResourceManager.GetObject("treeIcon_telnet", resourceCulture);

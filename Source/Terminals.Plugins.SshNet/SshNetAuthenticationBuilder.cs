@@ -8,8 +8,6 @@ using Renci.SshNet;
 using Terminals.Common.Configuration;
 using Terminals.Configuration;
 using Terminals.Data;
-using Terminals.Plugins.Putty;
-
 namespace Terminals.Plugins.SshNet
 {
     internal static class SshNetAuthenticationBuilder

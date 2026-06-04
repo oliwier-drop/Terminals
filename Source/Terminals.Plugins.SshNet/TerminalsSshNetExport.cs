@@ -2,7 +2,6 @@
 // Copyright (c) oliwier-drop and contributors — fork-authored code.
 // See LICENSE.md and FORK-AUTHORED.md at the repository root.
 using Terminals.Integration.Export;
-using Terminals.Plugins.Putty;
 
 namespace Terminals.Plugins.SshNet
 {

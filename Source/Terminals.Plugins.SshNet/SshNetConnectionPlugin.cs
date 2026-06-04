@@ -9,7 +9,6 @@ using Terminals.Common.Connections;
 using Terminals.Connections;
 using Terminals.Data;
 using Terminals.Integration.Export;
-using Terminals.Plugins.Putty;
 
 namespace Terminals.Plugins.SshNet
 {
