@@ -80,6 +80,10 @@
     <Reference Include="Renci.SshNet">
       <HintPath>..\packages\SSH.NET.2020.0.2\lib\net40\Renci.SshNet.dll</HintPath>
     </Reference>
+    <Reference Include="VtNetCore">
+      <HintPath>..\packages\VtNetCore.1.0.30\lib\net46\VtNetCore.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="MSTSCLib">
       <HintPath>..\..\Resources\Libraries\mstsc\MSTSCLib.dll</HintPath>
       <EmbedInteropTypes>True</EmbedInteropTypes>
@@ -161,6 +165,12 @@
     <Compile Include="FilePersisted\SearchEngineTest.cs" />
     <Compile Include="Configuration\FavoriteConfigurationElementTests.cs" />
     <Compile Include="Passwords\GuardedSecurityTests.cs" />
+    <Compile Include="SshNet\TerminalCellGridBuilderTests.cs" />
+    <Compile Include="SshNet\TerminalGlyphAtlasTests.cs" />
+    <Compile Include="SshNet\TerminalRowDifferTests.cs" />
+    <Compile Include="SshNet\TerminalRenderPipelineTests.cs" />
+    <Compile Include="SshNet\TerminalTextSelectionTests.cs" />
+    <Compile Include="SshNet\TerminalRenderPolicyTests.cs" />
     <Compile Include="SshNet\SshVtSessionTests.cs" />
     <Compile Include="SshNet\SshCredentialGateTests.cs" />
     <Compile Include="SshNet\SshKnownHostsStoreTests.cs" />
