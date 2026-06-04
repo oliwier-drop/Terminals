@@ -1,7 +1,7 @@
 # Fork-authored code (GPL-3.0)
 
 **Author / maintainer:** [oliwier-drop](https://github.com/oliwier-drop) and contributors  
-**License:** [GNU GPL v3.0](LICENSE-GPLv3.md) — open source, copyleft  
+**License:** [GNU GPL v3.0](LICENSE.md#gnu-general-public-license-v30--fork-authored-code) — open source, copyleft  
 **Upstream base:** [Terminals-Origin/Terminals](https://github.com/Terminals-Origin/Terminals) — [MS-CL](LICENSE.md)
 
 Everything listed below is **fork-authored** (written for this SSH.NET / VtNetCore work), not from upstream Terminals. Other paths in the repo are upstream MS-CL unless you changed them locally without listing them here.
@@ -31,7 +31,7 @@ Includes all `.cs`, `.csproj`, `packages.config`, and `Properties/` under those 
 
 | File | Description |
 |------|-------------|
-| `LICENSE-GPLv3.md` | GPL-3.0 terms for fork-authored parts |
+| `LICENSE.md` | MS-CL (upstream) and GPL-3.0 (fork-authored) |
 | `FORK-AUTHORED.md` | This file |
 | `NOTICE` | Attribution notice |
 | `ROADMAP.md` | Fork feature roadmap |

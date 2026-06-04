@@ -16,7 +16,7 @@ Fork features and status (SSH.NET, terminal renderer, performance): **[ROADMAP.m
 
 ### Which code is fork-authored (GPL-3.0)
 
-Open-source components written for this fork are listed in **[FORK-AUTHORED.md](FORK-AUTHORED.md)**. GPL sources are marked with `SPDX-License-Identifier: GPL-3.0-or-later` at the top of each file. See also [NOTICE](NOTICE) and [LICENSE-GPLv3.md](LICENSE-GPLv3.md).
+Open-source components written for this fork are listed in **[FORK-AUTHORED.md](FORK-AUTHORED.md)**. GPL sources are marked with `SPDX-License-Identifier: GPL-3.0-or-later` at the top of each file. See also [NOTICE](NOTICE) and [LICENSE.md](LICENSE.md#gnu-general-public-license-v30--fork-authored-code) (GPL-3.0 section).
 
 The SSH.NET plugin uses **VtNetCore** for xterm-grade in-process display (.NET Framework 4.8). For PuTTY-identical behavior, use the legacy **PuTTY** SSH connection type.
 
@@ -36,7 +36,7 @@ This repository contains **two licenses**. Together, the distribution is **fully
 | Codebase | License | Scope |
 |----------|---------|--------|
 | **Original Terminals code** (from [Terminals-Origin/Terminals](https://github.com/Terminals-Origin/Terminals)) | [**MS-CL**](LICENSE.md) — Microsoft Shared Source Community License | Most of the tree: core app, RDP/VNC/Telnet plugins, legacy PuTTY SSH plugin, shared libraries, docs carried from upstream, etc. |
-| **Fork-authored code** (written for this fork) | [**GNU GPL v3**](LICENSE-GPLv3.md) | Primarily `Terminals.Plugins.SshNet`, related tests, and supporting changes required for the new SSH stack |
+| **Fork-authored code** (written for this fork) | [**GNU GPL v3**](LICENSE.md#gnu-general-public-license-v30--fork-authored-code) | Primarily `Terminals.Plugins.SshNet`, related tests, and supporting changes required for the new SSH stack |
 
 **In short:**
 
