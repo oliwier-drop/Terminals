@@ -35,6 +35,8 @@ This document describes what you need to **build** and **run** this fork of Term
 | [VtNetCore](https://www.nuget.org/packages/VtNetCore) **1.0.30** | `Terminals.Plugins.SshNet` (terminal emulation) |
 | log4net, Moq, Entity Framework, etc. | See `packages.config` in each project under `Source/` |
 
+Phase 3 SSH terminal rendering uses **GDI+ only** (glyph atlas in `Terminals.Plugins.SshNet/Rendering/`); no additional NuGet packages.
+
 ### Build commands
 
 From the repository root (PowerShell):
