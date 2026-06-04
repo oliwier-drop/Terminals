@@ -70,13 +70,18 @@ These files **derive from upstream** Terminals (MS-CL). Only your **changes** in
 |------|------------------------|
 | `Source/Terminals/Connections/PluginsLoader.cs` | Load `Terminals.Plugins.SshNet` |
 | `Source/Terminals/Connections/ConnectionManager.cs` | Deferred connect, post-connect sync |
-| `Source/Terminals/Forms/ConnectionsUiFactory.cs` | SSH connection wiring |
+| `Source/Terminals/Forms/ConnectionsUiFactory.cs` | SSH connection wiring; assign protocol icon on new terminal tabs |
+| `Source/Terminals/Data/Favorites/FavoriteIcons.cs` | `GetConnectionIcon` — same icon source as favorites tree, used on tabs |
+| `Source/Terminals/Forms/TabControlRemover.cs` | Close confirmation uses the tab being closed, not the selected connection |
+| `Source/TabControl/TabControl.cs` | Per-tab close button (browser-style); tab protocol icon rendering and layout |
+| `Source/TabControl/TabControlItem.cs` | `TabIcon`, `CloseGlyphRect`; title hit-test excludes close glyph |
+| `Source/TabControl/TabControlCloseButton.cs` | Draw close glyph at arbitrary tab rectangle (hover per tab) |
 | `Source/Terminals/Forms/Controls/TerminalTabsSelectionControler.cs` | Tab / focus |
 | `Source/Terminals/Forms/PopupTerminal.cs` | Popup terminal |
 | `Source/Terminals/Terminals.csproj` | References, .NET 4.8 |
 | `Source/Terminals.Common/Connections/KnownConnectionConstants.cs` | SSH.NET connection id |
 | `Source/Terminals.Common/Terminals.Common.csproj` | New compile items |
-| `Source/Terminals.Plugins.Putty/` | Telnet-only after SSH decoupling (no shared SSH types) |
+| `Source/Terminals.Plugins.Putty/` | Telnet-only after SSH decoupling; SSH types moved to SshNet |
 | `Source/Tests/Tests.csproj` | SshNet tests, references |
 | `Source/Tests/Connections/*.cs` | Plugin loader / manager tests updates |
 | `.gitignore` | Build output, packages |
