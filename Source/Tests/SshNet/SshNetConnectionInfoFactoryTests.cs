@@ -8,7 +8,6 @@ using Renci.SshNet;
 using Terminals.Common.Configuration;
 using Terminals.Configuration;
 using Terminals.Data;
-using Terminals.Plugins.Putty;
 using Terminals.Plugins.SshNet;
 
 namespace Tests.SshNet

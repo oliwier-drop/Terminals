@@ -8,7 +8,7 @@ using Terminals.Configuration;
 using Terminals.Connections;
 using Terminals.Data;
 using Tests.FilePersisted;
-using Terminals.Plugins.Putty;
+using Terminals.Plugins.SshNet;
 
 namespace Tests
 {

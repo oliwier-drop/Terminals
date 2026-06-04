@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (c) oliwier-drop and contributors ó fork-authored code.
+// Copyright (c) oliwier-drop and contributors ù fork-authored code.
 // See LICENSE.md and FORK-AUTHORED.md at the repository root.
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using Terminals.Common.Configuration;
 using Terminals.Data;
-using Terminals.Plugins.Putty;
 using Terminals.Plugins.SshNet;
 
 namespace Tests.SshNet

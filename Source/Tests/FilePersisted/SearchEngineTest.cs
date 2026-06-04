@@ -7,7 +7,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Terminals.Data;
 using Terminals.Forms.Controls;
 using Tests.Connections;
-using Terminals.Plugins.Putty;
+using Terminals.Plugins.SshNet;
 
 namespace Tests.FilePersisted
 {

@@ -15,6 +15,7 @@ using Tests.Connections;
 using Tests.FilePersisted;
 using Tests.Helpers;
 using Terminals.Plugins.Putty;
+using Terminals.Plugins.SshNet;
 
 namespace Tests.UserInterface
 {

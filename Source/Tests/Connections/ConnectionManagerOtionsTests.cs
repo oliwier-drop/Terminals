@@ -7,6 +7,7 @@ using Terminals.Connections.VMRC;
 using Terminals.Connections.VNC;
 using Terminals.Data;
 using Terminals.Plugins.Putty;
+using Terminals.Plugins.SshNet;
 
 namespace Tests.Connections
 {

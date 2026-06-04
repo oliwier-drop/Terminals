@@ -13,6 +13,7 @@ using Terminals.Connections.Web;
 using Terminals.Data;
 using Tests.Connections;
 using Terminals.Plugins.Putty;
+using Terminals.Plugins.SshNet;
 
 namespace Tests.UserInterface
 {

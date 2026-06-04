@@ -14,6 +14,7 @@ using Tests.Connections;
 using Tests.Helpers;
 using Tests.UserInterface;
 using Terminals.Plugins.Putty;
+using Terminals.Plugins.SshNet;
 
 namespace Tests.Integrations
 {
