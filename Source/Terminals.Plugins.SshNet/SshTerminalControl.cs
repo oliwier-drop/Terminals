@@ -1,40 +1,33 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (c) oliwier-drop and contributors — fork-authored code.
+// Copyright (c) oliwier-drop and contributors ? fork-authored code.
 // See LICENSE.md and FORK-AUTHORED.md at the repository root.
 using System;
-using System.Collections.Generic;
 using System.Drawing;
 using System.Reflection;
 using System.Text;
 using System.Windows.Forms;
+using Terminals.Plugins.SshNet.Rendering;
 using VtNetCore.VirtualTerminal;
-using VtNetCore.VirtualTerminal.Layout;
 
 namespace Terminals.Plugins.SshNet
 {
-    /// <summary>WinForms terminal surface backed by VtNetCore and GDI+ cell rendering.</summary>
+    /// <summary>WinForms terminal surface backed by VtNetCore and glyph-atlas rendering.</summary>
     internal class SshTerminalControl : UserControl
     {
         private const int RenderIntervalMs = 16;
         private const int ResizeDebounceMs = 200;
         private const int CoalescedRenderThresholdChars = 8192;
-        private const int FullRepaintCellThreshold = 6000;
-        private const int PartialRepaintMaxChunkChars = 256;
-        private const int PartialRepaintRowMargin = 2;
         private const int MaxColumns = 260;
         private const int MaxRows = 100;
 
         private readonly Action<string> sendInput;
         private readonly SshVtSession session = new SshVtSession();
+        private readonly TerminalRenderPipeline renderPipeline = new TerminalRenderPipeline();
         private readonly StringBuilder pendingOutput = new StringBuilder();
         private readonly object pendingLock = new object();
         private readonly Timer renderTimer;
         private readonly Timer resizeDebounceTimer;
         private readonly VScrollBar scrollBar;
-        private readonly Font terminalFont;
-        private readonly Font terminalBoldFont;
-        private readonly Font terminalItalicFont;
-        private readonly Font terminalBoldItalicFont;
         private int cellWidth;
         private int cellHeight;
         private int cachedMetricsWidth = -1;
@@ -50,6 +43,11 @@ namespace Terminals.Plugins.SshNet
         private bool pendingBeforeHandle;
         private bool caretVisible = true;
         private readonly Timer caretTimer;
+        private bool isSelecting;
+        private bool hasSelection;
+        private TerminalCellPoint selectionAnchor;
+        private TerminalCellPoint selectionEnd;
+        private Rectangle lastSelectionInvalidateRect = Rectangle.Empty;
 
         internal int Columns
         {
@@ -79,16 +77,12 @@ namespace Terminals.Plugins.SshNet
         internal SshTerminalControl(Action<string> sendInput)
         {
             this.sendInput = sendInput;
-            this.terminalFont = CreateTerminalFont();
-            this.terminalBoldFont = new Font(this.terminalFont, FontStyle.Bold);
-            this.terminalItalicFont = new Font(this.terminalFont, FontStyle.Italic);
-            this.terminalBoldItalicFont = new Font(this.terminalFont, FontStyle.Bold | FontStyle.Italic);
+            this.renderPipeline.UpdateDpiScale(this.GetDpiScale());
             this.RefreshCellMetrics();
 
             this.Dock = DockStyle.Fill;
             this.BackColor = Color.Black;
             this.ForeColor = Color.Gainsboro;
-            this.Font = this.terminalFont;
             this.TabStop = true;
             this.SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint, true);
             this.EnableDoubleBuffering();
@@ -116,6 +110,9 @@ namespace Terminals.Plugins.SshNet
             this.HandleCreated += this.OnHandleCreated;
             this.GotFocus += this.OnGotFocus;
             this.Click += this.OnClick;
+            this.MouseDown += this.OnMouseDown;
+            this.MouseMove += this.OnMouseMove;
+            this.MouseUp += this.OnMouseUp;
             this.MouseWheel += this.OnMouseWheel;
         }
 
@@ -207,10 +204,7 @@ namespace Terminals.Plugins.SshNet
                 this.resizeDebounceTimer.Dispose();
                 this.caretTimer.Stop();
                 this.caretTimer.Dispose();
-                this.terminalFont.Dispose();
-                this.terminalBoldFont.Dispose();
-                this.terminalItalicFont.Dispose();
-                this.terminalBoldItalicFont.Dispose();
+                this.renderPipeline.Dispose();
                 if (this.frameCache != null)
                 {
                     this.frameCache.Dispose();
@@ -278,11 +272,12 @@ namespace Terminals.Plugins.SshNet
 
         protected override void OnPaint(PaintEventArgs e)
         {
-            base.OnPaint(e);
             if (this.frameCache != null)
                 e.Graphics.DrawImageUnscaled(this.frameCache, 0, 0);
             else
-                this.PaintTerminal(e.Graphics, paintCaret: false);
+                this.RebuildFrameCache();
+
+            this.PaintSelectionOverlay(e.Graphics);
 
             if (this.Focused && this.caretVisible)
                 this.PaintCaretOverlay(e.Graphics);
@@ -452,6 +447,67 @@ namespace Terminals.Plugins.SshNet
             this.Focus();
         }
 
+        private void OnMouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left)
+                return;
+
+            this.Focus();
+            if (!this.TryHitTestCell(e.X, e.Y, out int row, out int col))
+                return;
+
+            if (this.hasSelection)
+                this.InvalidateSelectionRegion();
+
+            this.isSelecting = true;
+            this.hasSelection = true;
+            this.selectionAnchor = new TerminalCellPoint(row, col);
+            this.selectionEnd = new TerminalCellPoint(row, col);
+            this.Capture = true;
+            this.lastSelectionInvalidateRect = Rectangle.Empty;
+            this.InvalidateSelectionRegion();
+        }
+
+        private void OnMouseMove(object sender, MouseEventArgs e)
+        {
+            if (!this.isSelecting || (e.Button & MouseButtons.Left) == 0)
+                return;
+
+            if (!this.TryHitTestCellForSelection(e.X, e.Y, out int row, out int col))
+                return;
+
+            if (row == this.selectionEnd.Row && col == this.selectionEnd.Column)
+                return;
+
+            this.selectionEnd = new TerminalCellPoint(row, col);
+            this.InvalidateSelectionRegion();
+        }
+
+        private void OnMouseUp(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                if (this.isSelecting)
+                {
+                    this.isSelecting = false;
+                    this.Capture = false;
+                    if (this.TryHitTestCellForSelection(e.X, e.Y, out int row, out int col))
+                        this.selectionEnd = new TerminalCellPoint(row, col);
+
+                    this.CopySelectionToClipboard();
+                    this.InvalidateSelectionRegion();
+                }
+
+                return;
+            }
+
+            if (e.Button != MouseButtons.Right)
+                return;
+
+            this.Focus();
+            this.TryPasteFromClipboard();
+        }
+
         private void OnCaretTimerTick(object sender, EventArgs e)
         {
             if (!this.Focused)
@@ -464,9 +520,9 @@ namespace Terminals.Plugins.SshNet
         private void OnScrollBarScroll(object sender, ScrollEventArgs e)
         {
             this.followTail = false;
+            int rowDelta = e.NewValue - this.viewTopRow;
             this.viewTopRow = e.NewValue;
-            this.RebuildFrameCache();
-            this.Invalidate();
+            this.ApplyViewportScroll(rowDelta);
         }
 
         private void OnMouseWheel(object sender, MouseEventArgs e)
@@ -474,12 +530,13 @@ namespace Terminals.Plugins.SshNet
             if (this.scrollBar.Maximum <= 0)
                 return;
 
-            int delta = e.Delta > 0 ? -3 : 3;
+            int lineDelta = e.Delta > 0 ? -3 : 3;
             this.followTail = false;
-            this.viewTopRow = Math.Max(0, Math.Min(this.scrollBar.Maximum, this.viewTopRow + delta));
+            int newTop = Math.Max(0, Math.Min(this.scrollBar.Maximum, this.viewTopRow + lineDelta));
+            int rowDelta = newTop - this.viewTopRow;
+            this.viewTopRow = newTop;
             this.scrollBar.Value = Math.Min(this.scrollBar.Maximum, this.viewTopRow);
-            this.RebuildFrameCache();
-            this.Invalidate();
+            this.ApplyViewportScroll(rowDelta);
         }
 
         private void ScheduleRender()
@@ -547,12 +604,40 @@ namespace Terminals.Plugins.SshNet
             if (this.followTail)
                 this.viewTopRow = this.scrollBar.Maximum;
 
-            bool scrolled = this.viewTopRow != viewTopBefore;
-            if (this.TryRebuildFrameCacheIncremental(chunk, scrolled))
+            int scrollDeltaRows = this.viewTopRow - viewTopBefore;
+            this.EnsureFrameCacheBitmap();
+            if (this.frameCache == null)
                 return;
 
-            this.RebuildFrameCache();
-            this.Invalidate();
+            bool forceFullRepaint = TerminalRenderPipeline.ChunkRequiresFullRepaint(chunk);
+
+            using (Graphics graphics = Graphics.FromImage(this.frameCache))
+            {
+                if (scrollDeltaRows != 0
+                    && !forceFullRepaint
+                    && !this.renderPipeline.TryScrollFrame(
+                        graphics,
+                        this.frameCache,
+                        this.session.Controller,
+                        this.viewTopRow,
+                        scrollDeltaRows,
+                        this.frameCacheWidth))
+                {
+                    forceFullRepaint = true;
+                }
+
+                var diffOptions = new TerminalRowDiffOptions { ForceFullRepaint = forceFullRepaint };
+                var dirtyRows = this.renderPipeline.UpdateFrame(
+                    graphics,
+                    this.session.Controller,
+                    this.viewTopRow,
+                    this.frameCacheWidth,
+                    this.frameCacheHeight,
+                    diffOptions);
+                this.InvalidateDirtyRows(dirtyRows, forceFullRepaint);
+                if (this.hasSelection)
+                    this.InvalidateSelectionRegion();
+            }
         }
 
         private void OnTerminalResize(object sender, EventArgs e)
@@ -593,21 +678,18 @@ namespace Terminals.Plugins.SshNet
 
         private void RefreshCellMetrics()
         {
-            this.cellWidth = MeasureMonospaceCellWidth(this.terminalFont);
-            this.cellHeight = Math.Max(1, this.terminalFont.Height);
+            this.renderPipeline.UpdateDpiScale(this.GetDpiScale());
+            this.cellWidth = this.renderPipeline.CellWidth;
+            this.cellHeight = this.renderPipeline.CellHeight;
         }
 
-        private static int MeasureMonospaceCellWidth(Font font)
+        private float GetDpiScale()
         {
-            const TextFormatFlags flags = TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix;
-            int twoChars = TextRenderer.MeasureText("00", font, Size.Empty, flags).Width;
-            int oneChar = TextRenderer.MeasureText("0", font, Size.Empty, flags).Width;
-            int delta = twoChars - oneChar;
-            if (delta > 0)
-                return delta;
+            if (!this.IsHandleCreated)
+                return 1f;
 
-            int tenChars = TextRenderer.MeasureText("MMMMMMMMMM", font, Size.Empty, flags).Width;
-            return Math.Max(1, tenChars / 10);
+            using (Graphics graphics = this.CreateGraphics())
+                return graphics.DpiX / 96f;
         }
 
         private int GetPaintableWidth()
@@ -618,101 +700,27 @@ namespace Terminals.Plugins.SshNet
             return Math.Max(0, width);
         }
 
-        private Font GetSpanFont(LayoutSpan span)
+        private void InvalidateDirtyRows(System.Collections.Generic.IList<int> dirtyRows, bool fullRepaint)
         {
-            if (span.Bold && span.Italic)
-                return this.terminalBoldItalicFont;
-            if (span.Bold)
-                return this.terminalBoldFont;
-            if (span.Italic)
-                return this.terminalItalicFont;
-            return this.terminalFont;
-        }
-
-        private int GetVisibleCellCount()
-        {
-            this.EnsureCellMetrics();
-            return Math.Max(1, this.Columns) * Math.Max(1, this.Rows);
-        }
-
-        private static bool IsLikelyLocalEchoChunk(string chunk)
-        {
-            if (string.IsNullOrEmpty(chunk) || chunk.Length > PartialRepaintMaxChunkChars)
-                return false;
-
-            for (int i = 0; i < chunk.Length; i++)
+            if (fullRepaint || dirtyRows == null || dirtyRows.Count == 0)
             {
-                char c = chunk[i];
-                if (c == '\x1b' || c == '\x9b')
-                    return false;
-                if (c < 32 && c != '\r' && c != '\n' && c != '\t' && c != '\b')
-                    return false;
+                this.Invalidate();
+                return;
             }
 
-            return true;
-        }
-
-        private bool TryRebuildFrameCacheIncremental(string chunk, bool scrolled)
-        {
-            if (scrolled
-                || this.GetVisibleCellCount() <= FullRepaintCellThreshold
-                || !IsLikelyLocalEchoChunk(chunk))
+            int minRow = dirtyRows[0];
+            int maxRow = dirtyRows[0];
+            for (int i = 1; i < dirtyRows.Count; i++)
             {
-                return false;
+                if (dirtyRows[i] < minRow)
+                    minRow = dirtyRows[i];
+                if (dirtyRows[i] > maxRow)
+                    maxRow = dirtyRows[i];
             }
 
-            this.EnsureFrameCacheBitmap();
-            if (this.frameCache == null)
-                return false;
-
-            int cursorViewportRow = this.GetCursorViewportRow();
-            if (cursorViewportRow < 0)
-                return false;
-
-            var controller = this.session.Controller;
-            int visibleRows = Math.Max(1, controller.VisibleRows);
-            int firstRow = Math.Max(0, cursorViewportRow - PartialRepaintRowMargin);
-            int lastRow = Math.Min(visibleRows - 1, cursorViewportRow + PartialRepaintRowMargin);
-            int bandTop = firstRow * this.cellHeight;
-            int bandHeight = (lastRow - firstRow + 1) * this.cellHeight;
-            int width = this.frameCacheWidth;
-            int spanCount = lastRow - firstRow + 1;
-            List<LayoutRow> rows = controller.GetPageSpans(
-                this.viewTopRow + firstRow,
-                spanCount,
-                Math.Max(1, controller.VisibleColumns),
-                null);
-            if (rows == null || rows.Count == 0)
-                return false;
-
-            using (Graphics graphics = Graphics.FromImage(this.frameCache))
-            {
-                graphics.FillRectangle(Brushes.Black, 0, bandTop, width, bandHeight);
-                this.PaintLayoutRows(graphics, rows, 0, rows.Count - 1, firstRow);
-            }
-
-            this.Invalidate(new Rectangle(0, bandTop, width, bandHeight));
-            return true;
-        }
-
-        private int GetCursorViewportRow()
-        {
-            var controller = this.session.Controller;
-            int row = controller.ViewPort.CursorPosition.Row
-                + (controller.ViewPort.TopRow - this.viewTopRow);
-            int visibleRows = Math.Max(1, controller.VisibleRows);
-            if (row < 0 || row >= visibleRows)
-                return -1;
-
-            return row;
-        }
-
-        private List<LayoutRow> FetchLayoutRows()
-        {
-            var controller = this.session.Controller;
-            int paintColumns = Math.Max(1, controller.VisibleColumns);
-            int paintRows = Math.Max(1, controller.VisibleRows);
-            return controller.GetPageSpans(this.viewTopRow, paintRows, paintColumns, null);
+            int top = minRow * this.cellHeight;
+            int height = (maxRow - minRow + 1) * this.cellHeight;
+            this.Invalidate(new Rectangle(0, top, this.frameCacheWidth, height));
         }
 
         private void EnsureFrameCacheBitmap()
@@ -735,11 +743,7 @@ namespace Terminals.Plugins.SshNet
             this.frameCache = new Bitmap(width, height);
             this.frameCacheWidth = width;
             this.frameCacheHeight = height;
-
-            using (Graphics graphics = Graphics.FromImage(this.frameCache))
-            {
-                graphics.Clear(Color.Black);
-            }
+            this.renderPipeline.InvalidatePreviousGrid();
         }
 
         private void RebuildFrameCache()
@@ -750,8 +754,195 @@ namespace Terminals.Plugins.SshNet
 
             using (Graphics graphics = Graphics.FromImage(this.frameCache))
             {
-                this.PaintTerminal(graphics, paintCaret: false);
+                this.renderPipeline.RebuildFullFrame(
+                    graphics,
+                    this.session.Controller,
+                    this.viewTopRow,
+                    this.frameCacheWidth);
             }
+        }
+
+        private void ApplyViewportScroll(int scrollDeltaRows)
+        {
+            if (scrollDeltaRows == 0)
+                return;
+
+            this.EnsureFrameCacheBitmap();
+            if (this.frameCache == null)
+                return;
+
+            using (Graphics graphics = Graphics.FromImage(this.frameCache))
+            {
+                if (!this.renderPipeline.TryScrollFrame(
+                    graphics,
+                    this.frameCache,
+                    this.session.Controller,
+                    this.viewTopRow,
+                    scrollDeltaRows,
+                    this.frameCacheWidth))
+                {
+                    this.renderPipeline.RebuildFullFrame(
+                        graphics,
+                        this.session.Controller,
+                        this.viewTopRow,
+                        this.frameCacheWidth);
+                }
+            }
+
+            this.Invalidate();
+        }
+
+        private bool TryHitTestCell(int x, int y, out int row, out int column)
+        {
+            row = 0;
+            column = 0;
+            this.EnsureCellMetrics();
+            if (this.cellWidth <= 0 || this.cellHeight <= 0)
+                return false;
+
+            int paintableWidth = this.GetPaintableWidth();
+            if (x < 0 || x >= paintableWidth || y < 0)
+                return false;
+
+            row = y / this.cellHeight;
+            column = x / this.cellWidth;
+            int maxRow = Math.Max(1, this.Rows) - 1;
+            int maxCol = Math.Max(1, this.Columns) - 1;
+            if (row > maxRow || column > maxCol)
+                return false;
+
+            return true;
+        }
+
+        private void CopySelectionToClipboard()
+        {
+            if (!this.hasSelection)
+                return;
+
+            if (this.selectionAnchor.Row == this.selectionEnd.Row
+                && this.selectionAnchor.Column == this.selectionEnd.Column)
+            {
+                return;
+            }
+
+            try
+            {
+                var grid = TerminalCellGridBuilder.Build(
+                    this.session.Controller,
+                    this.viewTopRow,
+                    Math.Max(1, this.Rows),
+                    Math.Max(1, this.Columns));
+                string text = TerminalTextSelection.ExtractTextFromGrid(
+                    grid,
+                    this.selectionAnchor,
+                    this.selectionEnd);
+
+                if (string.IsNullOrEmpty(text))
+                    return;
+
+                Clipboard.SetText(text);
+            }
+            catch
+            {
+            }
+        }
+
+        private void PaintSelectionOverlay(Graphics graphics)
+        {
+            if (!this.hasSelection || graphics == null)
+                return;
+
+            var grid = TerminalCellGridBuilder.Build(
+                this.session.Controller,
+                this.viewTopRow,
+                Math.Max(1, this.Rows),
+                Math.Max(1, this.Columns));
+            this.renderPipeline.PaintSelection(
+                graphics,
+                grid,
+                this.selectionAnchor,
+                this.selectionEnd);
+        }
+
+        private void InvalidateSelectionRegion()
+        {
+            if (!this.IsHandleCreated)
+                return;
+
+            Rectangle newRect = Rectangle.Empty;
+            if (this.hasSelection)
+            {
+                this.EnsureCellMetrics();
+                newRect = TerminalTextSelection.GetSelectionPixelBounds(
+                    this.selectionAnchor,
+                    this.selectionEnd,
+                    Math.Max(1, this.Columns),
+                    this.cellWidth,
+                    this.cellHeight);
+            }
+
+            if (newRect.IsEmpty && !this.hasSelection)
+            {
+                if (!this.lastSelectionInvalidateRect.IsEmpty)
+                {
+                    this.Invalidate(this.lastSelectionInvalidateRect);
+                    this.lastSelectionInvalidateRect = Rectangle.Empty;
+                }
+
+                return;
+            }
+
+            if (newRect.IsEmpty)
+                return;
+
+            Rectangle invalidateRect = this.lastSelectionInvalidateRect.IsEmpty
+                ? newRect
+                : Rectangle.Union(this.lastSelectionInvalidateRect, newRect);
+            this.lastSelectionInvalidateRect = newRect;
+            this.Invalidate(invalidateRect);
+        }
+
+        private void ClearSelection()
+        {
+            if (!this.hasSelection)
+                return;
+
+            this.hasSelection = false;
+            this.isSelecting = false;
+            this.InvalidateSelectionRegion();
+        }
+
+        private bool TryHitTestCellForSelection(int x, int y, out int row, out int column)
+        {
+            if (this.TryHitTestCell(x, y, out row, out column))
+                return true;
+
+            this.EnsureCellMetrics();
+            if (this.cellWidth <= 0 || this.cellHeight <= 0)
+                return false;
+
+            int maxRow = Math.Max(1, this.Rows) - 1;
+            int maxCol = Math.Max(1, this.Columns) - 1;
+            int paintableWidth = this.GetPaintableWidth();
+            int clientHeight = this.DisplayRectangle.Height;
+
+            if (y < 0)
+                row = 0;
+            else if (y >= clientHeight)
+                row = maxRow;
+            else
+                row = y / this.cellHeight;
+
+            if (x < 0)
+                column = 0;
+            else if (x >= paintableWidth)
+                column = maxCol;
+            else
+                column = x / this.cellWidth;
+
+            row = Math.Min(maxRow, Math.Max(0, row));
+            column = Math.Min(maxCol, Math.Max(0, column));
+            return true;
         }
 
         private bool TryPasteFromClipboard()
@@ -778,8 +969,10 @@ namespace Terminals.Plugins.SshNet
         private void OnResizeDebounceTick(object sender, EventArgs e)
         {
             this.resizeDebounceTimer.Stop();
+            this.InvalidateCellMetrics();
             this.SyncSessionGeometry();
             this.UpdateScrollRange();
+            this.renderPipeline.InvalidatePreviousGrid();
             this.RebuildFrameCache();
             this.Invalidate();
 
@@ -814,68 +1007,6 @@ namespace Terminals.Plugins.SshNet
                 this.viewTopRow = maxTop;
                 if (this.scrollBar.Maximum >= this.scrollBar.Minimum)
                     this.scrollBar.Value = Math.Min(this.scrollBar.Maximum, this.viewTopRow);
-            }
-        }
-
-        private void PaintTerminal(Graphics graphics, bool paintCaret)
-        {
-            int paintWidth = this.GetPaintableWidth();
-            int paintHeight = Math.Max(1, this.DisplayRectangle.Height);
-            if (paintWidth <= 0 || this.cellHeight <= 0)
-                return;
-
-            graphics.Clear(Color.Black);
-            this.EnsureCellMetrics();
-            List<LayoutRow> rows = this.FetchLayoutRows();
-            if (rows == null)
-                return;
-
-            this.PaintLayoutRows(graphics, rows, 0, rows.Count - 1, 0);
-
-            if (paintCaret && this.Focused && this.caretVisible)
-                this.PaintCaretOverlay(graphics);
-        }
-
-        private void PaintLayoutRows(Graphics graphics, List<LayoutRow> rows, int firstRow, int lastRow, int viewportRowOffset)
-        {
-            if (rows == null || rows.Count == 0)
-                return;
-
-            firstRow = Math.Max(0, firstRow);
-            lastRow = Math.Min(rows.Count - 1, lastRow);
-            const TextFormatFlags textFlags = TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding;
-
-            for (int rowIndex = firstRow; rowIndex <= lastRow; rowIndex++)
-            {
-                LayoutRow row = rows[rowIndex];
-                int y = (viewportRowOffset + rowIndex) * this.cellHeight;
-                if (row == null || row.Spans == null)
-                    continue;
-
-                int x = 0;
-                foreach (LayoutSpan span in row.Spans)
-                {
-                    if (span == null || span.Hidden)
-                        continue;
-
-                    string text = span.Text ?? string.Empty;
-                    if (text.Length == 0)
-                        continue;
-
-                    Color backColor = VtNetColorHelper.ParseBackground(span.BackgroundColor);
-                    Color foreColor = VtNetColorHelper.ParseForeground(span.ForgroundColor);
-                    int spanWidth = text.Length * this.cellWidth;
-                    var cellRect = new Rectangle(x, y, spanWidth, this.cellHeight);
-                    TextRenderer.DrawText(
-                        graphics,
-                        text,
-                        this.GetSpanFont(span),
-                        cellRect,
-                        foreColor,
-                        backColor,
-                        textFlags);
-                    x += spanWidth;
-                }
             }
         }
 
@@ -921,18 +1052,6 @@ namespace Terminals.Plugins.SshNet
                 Math.Max(this.cellWidth, 2),
                 this.cellHeight);
             this.Invalidate(rect);
-        }
-
-        private static Font CreateTerminalFont()
-        {
-            try
-            {
-                return new Font("Consolas", 10f, FontStyle.Regular);
-            }
-            catch
-            {
-                return new Font(FontFamily.GenericMonospace, 10f, FontStyle.Regular);
-            }
         }
 
         private void EnableDoubleBuffering()

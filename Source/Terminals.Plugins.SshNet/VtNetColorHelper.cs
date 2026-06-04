@@ -9,8 +9,10 @@ namespace Terminals.Plugins.SshNet
 {
     internal static class VtNetColorHelper
     {
-        private static readonly Color DefaultForeground = Color.FromArgb(0xC0, 0xC0, 0xC0);
-        private static readonly Color DefaultBackground = Color.Black;
+        internal static readonly Color DefaultForegroundColor = Color.FromArgb(0xC0, 0xC0, 0xC0);
+        internal static readonly Color DefaultBackgroundColor = Color.Black;
+        private static readonly Color DefaultForeground = DefaultForegroundColor;
+        private static readonly Color DefaultBackground = DefaultBackgroundColor;
         private static readonly Dictionary<string, Color> Cache = new Dictionary<string, Color>(StringComparer.Ordinal);
 
         internal static Color ParseForeground(string hexOrName)
