@@ -35,8 +35,7 @@ Includes all `.cs`, `.csproj`, `packages.config`, and `Properties/` under those 
 | `FORK-AUTHORED.md` | This file |
 | `NOTICE` | Attribution notice |
 | `ROADMAP.md` | Fork feature roadmap |
-| `Requirements.md` | Build/runtime for this fork |
-| `README.md` | Fork overview (mixed-license explanation) |
+| `README.md` | Fork overview, license, build/runtime requirements |
 
 ---
 
