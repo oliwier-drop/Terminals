@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (c) oliwier-drop and contributors — fork-authored code.
+// Copyright (c) oliwier-drop and contributors â€” fork-authored code.
 // See LICENSE.md and FORK-AUTHORED.md at the repository root.
 using System;
 using System.IO;
@@ -25,6 +25,52 @@ namespace Tests.SshNet
                 SshKnownHostEntry entry = store.Find("server", 22, "ssh-rsa");
                 Assert.IsNotNull(entry);
                 Assert.IsTrue(entry.Matches("server", 22, "ssh-rsa", fingerprint));
+            }
+            finally
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+        }
+
+        [TestMethod]
+        public void AddOrUpdate_SameHostPortAndKey_ReplacesFingerprint()
+        {
+            string path = Path.Combine(Path.GetTempPath(), "terminals-knownhosts-" + Guid.NewGuid() + ".xml");
+            try
+            {
+                var store = new SshKnownHostsStore(path);
+                byte[] oldFingerprint = { 1, 2, 3, 4 };
+                byte[] newFingerprint = { 5, 6, 7, 8 };
+
+                store.AddOrUpdate("server", 22, "ssh-rsa", oldFingerprint);
+                store.AddOrUpdate("server", 22, "ssh-rsa", newFingerprint);
+
+                SshKnownHostEntry entry = store.Find("server", 22, "ssh-rsa");
+                Assert.IsNotNull(entry);
+                Assert.IsFalse(entry.Matches("server", 22, "ssh-rsa", oldFingerprint));
+                Assert.IsTrue(entry.Matches("server", 22, "ssh-rsa", newFingerprint));
+            }
+            finally
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+        }
+
+        [TestMethod]
+        public void Find_DifferentPortOrHostKeyName_DoesNotMatchEntry()
+        {
+            string path = Path.Combine(Path.GetTempPath(), "terminals-knownhosts-" + Guid.NewGuid() + ".xml");
+            try
+            {
+                var store = new SshKnownHostsStore(path);
+                byte[] fingerprint = { 1, 2, 3, 4 };
+
+                store.AddOrUpdate("server", 22, "ssh-rsa", fingerprint);
+
+                Assert.IsNull(store.Find("server", 2222, "ssh-rsa"));
+                Assert.IsNull(store.Find("server", 22, "ssh-ed25519"));
             }
             finally
             {
@@ -77,6 +123,44 @@ namespace Tests.SshNet
 
                 string migrated = File.ReadAllText(path);
                 Assert.IsTrue(migrated.Contains("<KnownHosts"));
+            }
+            finally
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+        }
+
+        [TestMethod]
+        public void Load_EmptyFile_DoesNotThrowAndReturnsEmptyStore()
+        {
+            string path = Path.Combine(Path.GetTempPath(), "terminals-knownhosts-" + Guid.NewGuid() + ".xml");
+            try
+            {
+                File.WriteAllText(path, string.Empty);
+
+                var store = new SshKnownHostsStore(path);
+
+                Assert.IsNull(store.Find("server", 22, "ssh-rsa"));
+            }
+            finally
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+        }
+
+        [TestMethod]
+        public void Load_CorruptDocument_DoesNotThrowAndReturnsEmptyStore()
+        {
+            string path = Path.Combine(Path.GetTempPath(), "terminals-knownhosts-" + Guid.NewGuid() + ".xml");
+            try
+            {
+                File.WriteAllText(path, "<KnownHosts><Entry>");
+
+                var store = new SshKnownHostsStore(path);
+
+                Assert.IsNull(store.Find("server", 22, "ssh-rsa"));
             }
             finally
             {

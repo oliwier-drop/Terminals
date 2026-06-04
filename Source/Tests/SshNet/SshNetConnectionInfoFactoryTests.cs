@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (c) oliwier-drop and contributors — fork-authored code.
+// Copyright (c) oliwier-drop and contributors â€” fork-authored code.
 // See LICENSE.md and FORK-AUTHORED.md at the repository root.
 using System.IO;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -184,7 +184,46 @@ namespace Tests.SshNet
             bool created = SshNetConnectionInfoFactory.TryCreate("host", 22, CreateCredentials(), new SshOptions { AuthMethod = AuthMethod.Host }, null, null, out setup, out error);
 
             Assert.IsTrue(created, error);
-            Assert.IsTrue(setup.ConnectionInfo.AuthenticationMethods.Count >= 2);
+            Assert.AreEqual(2, setup.ConnectionInfo.AuthenticationMethods.Count);
+            Assert.IsInstanceOfType(setup.ConnectionInfo.AuthenticationMethods[0], typeof(KeyboardInteractiveAuthenticationMethod));
+            Assert.IsInstanceOfType(setup.ConnectionInfo.AuthenticationMethods[1], typeof(PasswordAuthenticationMethod));
+        }
+
+        [TestMethod]
+        public void TryCreate_PublicKeyMissingKeyFile_ReturnsError()
+        {
+            var options = new SshOptions
+            {
+                AuthMethod = AuthMethod.PublicKey,
+                KeyFile = Path.Combine(Path.GetTempPath(), "missing-terminals-test-key.pem")
+            };
+
+            SshNetConnectionSetup setup;
+            string error;
+            bool created = SshNetConnectionInfoFactory.TryCreate("host", 22, CreateCredentials(password: null), options, null, null, out setup, out error);
+
+            Assert.IsFalse(created);
+            Assert.IsNull(setup);
+            Assert.IsTrue(error.IndexOf("not found", System.StringComparison.OrdinalIgnoreCase) >= 0, error);
+        }
+
+        [TestMethod]
+        public void TryCreate_PublicKeyMissingKeyTag_ReturnsError()
+        {
+            var keys = new KeysSection();
+            var options = new SshOptions
+            {
+                AuthMethod = AuthMethod.PublicKey,
+                KeyTag = "missing"
+            };
+
+            SshNetConnectionSetup setup;
+            string error;
+            bool created = SshNetConnectionInfoFactory.TryCreate("host", 22, CreateCredentials(password: null), options, keys, null, out setup, out error);
+
+            Assert.IsFalse(created);
+            Assert.IsNull(setup);
+            Assert.IsTrue(error.IndexOf("key tag", System.StringComparison.OrdinalIgnoreCase) >= 0, error);
         }
 
         private static string CreateTemporaryRsaKey()
