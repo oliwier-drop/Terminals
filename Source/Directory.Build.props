@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <!-- Fork: unified .NET Framework 4.8 across the solution. -->
+  <PropertyGroup>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+  </PropertyGroup>
+  <!-- WiX 3.14 installs targets under Program Files (x86)\MSBuild, not under VS BuildTools MSBuild. -->
+  <PropertyGroup>
+    <_WixTargetsDir>$(MSBuildProgramFiles32)\MSBuild\Microsoft\WiX\v3.x\</_WixTargetsDir>
+    <WixTargetsPath>$(_WixTargetsDir)wix.targets</WixTargetsPath>
+    <WixCATargetsPath>$(_WixTargetsDir)Wix.CA.targets</WixCATargetsPath>
+  </PropertyGroup>
+</Project>

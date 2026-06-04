@@ -70,7 +70,7 @@ What you need to **build** and **run** this fork. For upstream platform notes (R
 |-------------|--------|
 | **OS** | Windows x64 (recommended for tooling). |
 | **MSBuild** | Visual Studio 2022 **Build Tools** or full Visual Studio with **.NET desktop development** workload. |
-| **.NET Framework targeting pack** | **4.8** (installed with VS Build Tools). Projects target `v4.8`. |
+| **.NET Framework targeting pack** | **4.8** (installed with VS Build Tools). All solution projects target **.NET Framework 4.8**. |
 | **.NET SDK** (optional) | SDK 8.x is useful for `dotnet msbuild` and general tooling; not strictly required if you use VS MSBuild. |
 | **NuGet** | Restore packages before the first build (`nuget restore` on `Source/Terminals.sln`). |
 

@@ -3,7 +3,8 @@
 // This file contains shared assembly info for all Terminals assemblies
 // Link to all new projects 
 
-[assembly: AssemblyCompany("Robert Chartier")]
-[assembly: AssemblyProduct("Terminals by Robert Chartier")]
-[assembly: AssemblyCopyright("Copyright © by Robert Chartier 2006 - 2013")]
-[assembly: AssemblyVersion("4.0.1.*")]
+[assembly: AssemblyCompany("Oliwier Drop")]
+[assembly: AssemblyProduct("Terminals (SSH.NET fork)")]
+[assembly: AssemblyCopyright("Copyright © Robert Chartier 2006-2013; fork © Oliwier Drop 2026")]
+[assembly: AssemblyVersion("1.0.0.*")]
+[assembly: AssemblyInformationalVersion("1.0.0 (fork; upstream base 4.0.1)")]

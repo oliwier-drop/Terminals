@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
   <!--to make new release change all product id, package id and version number-->
-  <Product Id="*" Name="Terminals" Language="1033" Version="4.0.1.0" Manufacturer="Robert Chartier"
-           UpgradeCode="DD0D31A2-2E86-4F3F-98CE-6AED37FF24CD">
+  <Product Id="*" Name="Terminals (SSH.NET fork)" Language="1033" Version="1.0.0.0" Manufacturer="oliwier-drop"
+           UpgradeCode="A8F3C2E1-9B4D-4A6F-B1E2-7C3D5E8F9012">
     <Package Id="*" InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
     <MajorUpgrade Schedule="afterInstallInitialize" DowngradeErrorMessage="A newer version of Terminals is already installed." />
     
@@ -25,6 +25,7 @@
       <ComponentGroupRef Id="VncComponents" />
       <ComponentGroupRef Id="WebComponents" />
       <ComponentGroupRef Id="PuttyComponents" />
+      <ComponentGroupRef Id="SshNetComponents" />
       <ComponentRef Id="ApplicationShortcut" />
     </Feature>
 
@@ -49,7 +50,8 @@
             <Directory Id="RDPFOLDER" Name="Rdp" />
             <Directory Id="PUTTYFOLDER" Name="Putty" >
               <Directory Id="PUTTYRESOURCESFOLDER" Name="Resources" />
-            </Directory>    
+            </Directory>
+            <Directory Id="SSHNETFOLDER" Name="SshNet" />
             <Directory Id="VMRCFOLDER" Name="Vmrc" />
             <Directory Id="VNCFOLDER" Name="Vnc" />
             <Directory Id="WEBFOLDER" Name="Web" />
@@ -66,7 +68,7 @@
     <DirectoryRef Id="TerminalsProgramsFolder">
       <Component Id="ApplicationShortcut" Guid="42B36D8B-C5D6-493C-A794-D158800D9229">
         <Shortcut Id="ApplicationStartMenuShortcut"
-             Name="Terminals" Description="Terminals is a secure, multi tab terminal services/remote desktop client."
+             Name="Terminals (SSH.NET fork)" Description="Terminals fork with SSH.NET plugin (upstream base 4.0.1)."
              Target="[INSTALLFOLDER]Terminals.exe" WorkingDirectory="INSTALLFOLDER">
           <Icon Id="terminalsicon.ico" SourceFile="..\Terminals\terminalsicon.ico"/>
         </Shortcut>

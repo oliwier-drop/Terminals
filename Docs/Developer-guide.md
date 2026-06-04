@@ -29,7 +29,7 @@
 
 ## Project structure
 * Current development tool is Visual Studio 2017 with .NET C#.
-* The main solution project is configured to target .NET framework 4. But there are other external projects, which are still targeting .NET 2.0. Don't change the target framework for them.
+* This fork targets **.NET Framework 4.8** for all projects in `Source/Terminals.sln` (see `Source/Directory.Build.props`).
 * Terminals solution references libraries and images from Resources directory.
 * For Logging the Log4Net is configured. Log files are stored under application Logs subdirectory.
 * To build the release setup use the "Distribution release" solution configuration. For general development use standard debug and release.

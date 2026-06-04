@@ -78,6 +78,9 @@ These files **derive from upstream** Terminals (MS-CL). Only your **changes** in
 | `Source/Terminals/Forms/Controls/TerminalTabsSelectionControler.cs` | Tab / focus |
 | `Source/Terminals/Forms/PopupTerminal.cs` | Popup terminal |
 | `Source/Terminals/Terminals.csproj` | References, .NET 4.8 |
+| `Source/Directory.Build.props` | Unified **.NET Framework 4.8**; WiX targets path for Build Tools |
+| `Source/**/**.csproj` (solution) | Retarget v2.0 / v4.0 projects to **v4.8** |
+| `Source/TerminalsSetup/` | MSI: SshNet plugin, fork product name/version |
 | `Source/Terminals.Common/Connections/KnownConnectionConstants.cs` | SSH.NET connection id |
 | `Source/Terminals.Common/Terminals.Common.csproj` | New compile items |
 | `Source/Terminals.Plugins.Putty/` | Telnet-only after SSH decoupling; SSH types moved to SshNet |

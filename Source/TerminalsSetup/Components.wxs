@@ -134,6 +134,17 @@
         <File Source="$(var.Terminals.Plugins.Web.TargetPath)" KeyPath="yes" Checksum="yes"/>
       </Component>
     </ComponentGroup>
+    <ComponentGroup Id="SshNetComponents" Directory="SSHNETFOLDER">
+      <Component Id="PluginSshNet" Guid="C4E8A1F2-3B5D-4E9A-8C7F-1D2E3F4A5B6C">
+        <File Source="$(var.Terminals.Plugins.SshNet.TargetPath)" KeyPath="yes" Checksum="yes"/>
+      </Component>
+      <Component Id="SshNetRenci" Guid="D5F9B2A3-4C6E-5F0B-9D8E-2E3F4A5B6C7D">
+        <File Source="$(var.Terminals.Plugins.SshNet.TargetDir)Renci.SshNet.dll" KeyPath="yes" Checksum="yes"/>
+      </Component>
+      <Component Id="SshNetVtNetCore" Guid="E6A0C3B4-5D7F-6A1C-0E9F-3F4A5B6C7D8E">
+        <File Source="$(var.Terminals.Plugins.SshNet.TargetDir)VtNetCore.dll" KeyPath="yes" Checksum="yes"/>
+      </Component>
+    </ComponentGroup>
     <ComponentGroup Id="PuttyComponents">
       <Component Id="puttyexe" Guid="3944DCB6-AF12-47DC-B929-90BAFAF87518" Directory="PUTTYRESOURCESFOLDER">
         <File Source="..\..\Resources\Libraries\Putty\putty.exe" KeyPath="yes" Checksum="yes"/>
