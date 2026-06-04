@@ -772,6 +772,7 @@
       <DependentUpon>PopupTerminal.cs</DependentUpon>
     </Compile>
     <Compile Include="ProgramInfo.cs" />
+    <Compile Include="ForkBranding.cs" />
     <Compile Include="Security\PasswordFunctions2.cs" />
     <Compile Include="Settings\SettingsInstance.cs" />
     <Compile Include="Data\SerializableDictionary.cs" />

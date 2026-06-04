@@ -5,8 +5,8 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("Terminals")]
-[assembly: AssemblyDescription("RDP, VNC, VMRC, RAS, Telnet, SSH, ICA Citrix remote client")]
+[assembly: AssemblyTitle("Terminals (SSH.NET fork)")]
+[assembly: AssemblyDescription("SSH.NET fork v1.0.0 — RDP, VNC, SSH, Telnet, ICA, and more")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]

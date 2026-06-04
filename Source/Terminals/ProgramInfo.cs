@@ -121,8 +121,14 @@ namespace Terminals
                 //.NET Likes:  MAJOR.MINOR.BUILD.REVISION
 
                 var version = Assembly.GetExecutingAssembly().GetName().Version;
-                VersionString = String.Format("{0}.{1}.{2}", version.Major, version.Minor, version.Build);
-                aboutText = TitleVersion;
+                var informational = (AssemblyInformationalVersionAttribute)Attribute.GetCustomAttribute(
+                    aAssembly, typeof(AssemblyInformationalVersionAttribute));
+                if (informational != null && !String.IsNullOrWhiteSpace(informational.InformationalVersion))
+                    VersionString = informational.InformationalVersion;
+                else
+                    VersionString = String.Format("{0}.{1}.{2}", version.Major, version.Minor, version.Build);
+
+                aboutText = String.Format("{0} {1}", Title, VersionString);
                 SetDebugBuild(version);
             }
 

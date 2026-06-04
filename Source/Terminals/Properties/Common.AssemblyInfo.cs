@@ -7,4 +7,5 @@
 [assembly: AssemblyProduct("Terminals (SSH.NET fork)")]
 [assembly: AssemblyCopyright("Copyright © Robert Chartier 2006-2013; fork © Oliwier Drop 2026")]
 [assembly: AssemblyVersion("1.0.0.*")]
-[assembly: AssemblyInformationalVersion("1.0.0 (fork; upstream base 4.0.1)")]
+[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyInformationalVersion("1.0.0")]

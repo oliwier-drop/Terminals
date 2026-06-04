@@ -33,7 +33,8 @@ namespace Terminals
 
         private void AboutForm_Load(object sender, EventArgs e)
         {
-            this.titleLabel.Text += string.Format("({0})", Program.Info.Description);
+            this.Text = "About " + ForkBranding.DisplayName;
+            this.titleLabel.Text = ForkBranding.DisplayName + "\r\n" + Program.Info.Description;
             this.lblVersion.Text = Program.Info.GetAboutText(persistenceName);
             this.textBox1.Text = this.FormatDetails();
         }

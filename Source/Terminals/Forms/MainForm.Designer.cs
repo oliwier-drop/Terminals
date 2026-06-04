@@ -185,7 +185,7 @@ namespace Terminals
             // 
             this.MainWindowNotifyIcon.BalloonTipIcon = System.Windows.Forms.ToolTipIcon.Info;
             this.MainWindowNotifyIcon.BalloonTipText = "Click to Show or Hide Terminals Main Window";
-            this.MainWindowNotifyIcon.BalloonTipTitle = "Terminals";
+            this.MainWindowNotifyIcon.BalloonTipTitle = "Terminals (SSH.NET fork) 1.0.0";
             this.MainWindowNotifyIcon.ContextMenuStrip = this.QuickContextMenu;
             this.MainWindowNotifyIcon.Text = "Click to Show or Hide Terminals Main Window";
             this.MainWindowNotifyIcon.MouseClick += new System.Windows.Forms.MouseEventHandler(this.MainWindowNotifyIcon_MouseClick);

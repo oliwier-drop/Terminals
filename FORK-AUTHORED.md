@@ -77,6 +77,9 @@ These files **derive from upstream** Terminals (MS-CL). Only your **changes** in
 | `Source/TabControl/TabControlCloseButton.cs` | Draw close glyph at arbitrary tab rectangle (hover per tab) |
 | `Source/Terminals/Forms/Controls/TerminalTabsSelectionControler.cs` | Tab / focus |
 | `Source/Terminals/Forms/PopupTerminal.cs` | Popup terminal |
+| `Source/Terminals/ForkBranding.cs` | Fork display name / version strings |
+| `Source/Terminals/ProgramInfo.cs` | About/title version from informational version |
+| `Source/Terminals/Forms/AboutForm.cs` | About dialog fork branding |
 | `Source/Terminals/Terminals.csproj` | References, .NET 4.8 |
 | `Source/Directory.Build.props` | Unified **.NET Framework 4.8**; WiX targets path for Build Tools |
 | `Source/**/**.csproj` (solution) | Retarget v2.0 / v4.0 projects to **v4.8** |
