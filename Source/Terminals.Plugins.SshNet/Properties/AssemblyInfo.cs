@@ -8,7 +8,6 @@ using System.Runtime.InteropServices;
 
 [assembly: AssemblyTitle("Terminals.Plugins.SshNet")]
 [assembly: AssemblyDescription("SSH.NET terminal plugin (fork-authored, GPL-3.0)")]
-[assembly: AssemblyCopyright("Copyright (c) oliwier-drop and contributors — GPL-3.0")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCulture("")]
 
