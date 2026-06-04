@@ -76,7 +76,7 @@ These files **derive from upstream** Terminals (MS-CL). Only your **changes** in
 | `Source/Terminals/Terminals.csproj` | References, .NET 4.8 |
 | `Source/Terminals.Common/Connections/KnownConnectionConstants.cs` | SSH.NET connection id |
 | `Source/Terminals.Common/Terminals.Common.csproj` | New compile items |
-| `Source/Terminals.Plugins.Putty/` (SSH-related) | Shared `SshOptions`, export split with SshNet plugin |
+| `Source/Terminals.Plugins.Putty/` | Telnet-only after SSH decoupling (no shared SSH types) |
 | `Source/Tests/Tests.csproj` | SshNet tests, references |
 | `Source/Tests/Connections/*.cs` | Plugin loader / manager tests updates |
 | `.gitignore` | Build output, packages |
