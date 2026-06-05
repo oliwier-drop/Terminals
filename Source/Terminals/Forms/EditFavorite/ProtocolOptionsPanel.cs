@@ -3,6 +3,7 @@ using System.Windows.Forms;
 using Terminals.Common.Forms.EditFavorite;
 using Terminals.Configuration;
 using Terminals.Data;
+using Terminals.Forms;
 
 namespace Terminals.Forms.EditFavorite
 {
@@ -45,6 +46,7 @@ namespace Terminals.Forms.EditFavorite
 
         private void AddNewControl(Control protocolControl)
         {
+            DpiFormHelper.InheritChildren(protocolControl);
             protocolControl.Dock = DockStyle.Fill;
             this.Controls.Add(protocolControl);
             this.RegisterIntegerValidation(protocolControl);

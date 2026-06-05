@@ -51,6 +51,11 @@ namespace Terminals.Forms.EditFavorite
             this.generalPanel1.AssignRasControl(this.rasControl1);
         }
 
+        internal void EnablePanelScrolling()
+        {
+            this.panelContainer.AutoScroll = true;
+        }
+
         internal void LoadContent()
         {
             this.DockAllPanels();

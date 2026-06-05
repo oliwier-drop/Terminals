@@ -16,7 +16,7 @@ namespace Terminals.Forms
 
         public OptionDialog(IConnectionExtra terminal, IPersistence persistence)
         {
-            this.ApplySystemFont();
+            DpiFormHelper.Apply(this);
 
             InitializeComponent();
 
@@ -47,20 +47,19 @@ namespace Terminals.Forms
             this.DrawBottomLine();
         }
 
-        /// <summary>
-        /// Set default font type by Windows theme to use for all controls on form
-        /// </summary>
-        private void ApplySystemFont()
-        {
-            this.Font = SystemFonts.IconTitleFont;
-            this.AutoScaleMode = AutoScaleMode.Dpi;
-        }
-
         private void SetFormSize()
         {
-            // The option title label is the anchor for the form's width
-            Int32 formWidth = this.OptionTitelLabel.Location.X + this.OptionTitelLabel.Width + 15;
-            this.Width = formWidth;
+            const int designClientWidth = 850;
+            const int designClientHeight = 462;
+            int contentRight = Math.Max(
+                this.btnCancel.Right,
+                this.OptionTitelLabel.Right) + 12;
+            int contentBottom = Math.Max(
+                this.btnCancel.Bottom,
+                this.linkLabel1.Bottom) + 12;
+            int clientWidth = Math.Max(designClientWidth, contentRight);
+            int clientHeight = Math.Max(designClientHeight, contentBottom);
+            this.ClientSize = new Size(clientWidth, clientHeight);
         }
 
         /// <summary>
@@ -82,10 +81,12 @@ namespace Terminals.Forms
             {
                 foreach (Control ctrl in tp.Controls)
                 {
-                    if (ctrl is UserControl)
+                    if (ctrl is UserControl userControl)
                     {
-                        ctrl.Hide();
-                        this.Controls.Add(ctrl);
+                        userControl.AutoScaleMode = AutoScaleMode.Inherit;
+                        userControl.AutoScroll = true;
+                        userControl.Hide();
+                        this.Controls.Add(userControl);
                     }
                 }
             }
@@ -148,9 +149,14 @@ namespace Terminals.Forms
 
         private void UpdatePanelPosition()
         {
-            Int32 x = this.OptionTitelLabel.Left;
-            Int32 y = this.OptionTitelLabel.Top + this.OptionTitelLabel.Height + 3;
+            int x = this.OptionTitelLabel.Left;
+            int y = this.OptionTitelLabel.Top + this.OptionTitelLabel.Height + 3;
+            int right = this.ClientSize.Width - 12;
+            int bottom = this.btnOk.Top - 8;
+            int width = Math.Max(200, right - x);
+            int height = Math.Max(200, bottom - y);
             this.currentPanel.Location = new Point(x, y);
+            this.currentPanel.Size = new Size(width, height);
         }
 
         private void BtnOk_Click(object sender, EventArgs e)

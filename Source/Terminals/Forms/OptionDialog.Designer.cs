@@ -487,8 +487,8 @@ namespace Terminals.Forms
             // OptionDialog
             // 
             this.AcceptButton = this.btnOk;
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.AutoScaleDimensions = new System.Drawing.SizeF(96F, 96F);
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
             this.CancelButton = this.btnCancel;
             this.ClientSize = new System.Drawing.Size(850, 462);
             this.Controls.Add(this.OptionTitelLabel);

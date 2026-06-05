@@ -60,9 +60,11 @@ namespace Terminals
             this.persistence = persistence;
             this.connectionManager = connectionManager;
             this.favoriteIcons = favoriteIcons;
+            DpiFormHelper.Apply(this);
             this.InitializeComponent();
+            DpiFormHelper.InheritChildren(this.favoritePropertiesControl1);
+            this.favoritePropertiesControl1.EnablePanelScrolling();
             this.InitializeFavoritePropertiesControl();
-
         }
 
         private void InitializeFavoritePropertiesControl()
