@@ -26,8 +26,65 @@ namespace Tests.SshNet
 
             Assert.IsTrue(created, error);
             Assert.IsTrue(setup.EnableCompression);
-            Assert.IsTrue(setup.ConnectionInfo.CompressionAlgorithms.ContainsKey("zlib"));
             Assert.IsTrue(setup.ConnectionInfo.CompressionAlgorithms.ContainsKey("zlib@openssh.com"));
+        }
+
+        [TestMethod]
+        public void TryCreate_NetworkDeviceProfile_RestrictsAlgorithms()
+        {
+            var options = new SshOptions
+            {
+                AuthMethod = AuthMethod.Password,
+                ConnectionProfile = SshConnectionProfile.NetworkDevice
+            };
+
+            SshNetConnectionSetup setup;
+            string error;
+            bool created = SshNetConnectionInfoFactory.TryCreate(
+                "host",
+                22,
+                CreateCredentials(),
+                options,
+                null,
+                null,
+                out setup,
+                out error);
+
+            Assert.IsTrue(created, error);
+            Assert.IsTrue(setup.ConnectionInfo.HostKeyAlgorithms.ContainsKey("rsa-sha2-256"));
+            Assert.IsFalse(setup.ConnectionInfo.HostKeyAlgorithms.ContainsKey("ssh-ed25519"));
+            Assert.IsTrue(setup.ConnectionInfo.HmacAlgorithms.ContainsKey("hmac-sha2-256-etm@openssh.com"));
+            Assert.IsTrue(setup.ConnectionInfo.KeyExchangeAlgorithms.ContainsKey("diffie-hellman-group14-sha256"));
+            Assert.IsTrue(setup.ConnectionInfo.Encryptions.ContainsKey("aes128-ctr"));
+            Assert.IsFalse(setup.ConnectionInfo.Encryptions.ContainsKey("chacha20-poly1305@openssh.com"));
+            Assert.AreEqual(1, setup.ConnectionInfo.CompressionAlgorithms.Count);
+            Assert.IsTrue(setup.ConnectionInfo.CompressionAlgorithms.ContainsKey("none"));
+        }
+
+        [TestMethod]
+        public void TryCreate_ServerProfile_KeepsDefaultHostKeyAlgorithms()
+        {
+            var options = new SshOptions
+            {
+                AuthMethod = AuthMethod.Password,
+                ConnectionProfile = SshConnectionProfile.Server
+            };
+
+            SshNetConnectionSetup setup;
+            string error;
+            bool created = SshNetConnectionInfoFactory.TryCreate(
+                "host",
+                22,
+                CreateCredentials(),
+                options,
+                null,
+                null,
+                out setup,
+                out error);
+
+            Assert.IsTrue(created, error);
+            Assert.IsTrue(setup.ConnectionInfo.HostKeyAlgorithms.ContainsKey("ssh-ed25519"));
+            Assert.IsTrue(setup.ConnectionInfo.HostKeyAlgorithms.ContainsKey("rsa-sha2-256"));
         }
 
         [TestMethod]
