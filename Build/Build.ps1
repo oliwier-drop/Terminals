@@ -29,7 +29,7 @@ function Get-MsBuildPath {
 
 $msbuild = Get-MsBuildPath
 # Compile the solution - the distributionrelease configuration contains installer, which is not normal configurations
-& $msbuild "..\Source\Terminals.sln" /m /p:configuration=DistributionRelease "/p:Platform=Any CPU" /toolsversion:4.0 /t:rebuild | Tee-Object $logFile -Append;
+& $msbuild "..\Source\Terminals.sln" /m /p:configuration=DistributionRelease "/p:Platform=Any CPU" /t:rebuild | Tee-Object $logFile -Append;
  
 if ($Sign) {
     .\PackOutput.ps1 -Sign | Tee-Object $logFile -Append;
