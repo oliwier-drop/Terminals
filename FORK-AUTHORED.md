@@ -1,6 +1,6 @@
 # Fork-authored code (GPL-3.0)
 
-**Author / maintainer:** [oliwier-drop](https://github.com/oliwier-drop) and contributors  
+**Author / maintainer:** [Oliwier Drop](https://github.com/oliwier-drop) and contributors  
 **License:** [GNU GPL v3.0](LICENSE.md#gnu-general-public-license-v30--fork-authored-code) — open source, copyleft  
 **Upstream base:** [Terminals-Origin/Terminals](https://github.com/Terminals-Origin/Terminals) — [MS-CL](LICENSE.md)
 
