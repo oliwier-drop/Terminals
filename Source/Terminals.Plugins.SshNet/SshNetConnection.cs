@@ -451,8 +451,12 @@ namespace Terminals.Plugins.SshNet
                     invokeTarget,
                     () =>
                     {
-                        this.terminalControl.GetTerminalDimensions(out int measuredColumns, out int measuredRows);
-                        this.terminalControl.GetCellPixelSize(out int charWidth, out int charHeight);
+                        int measuredColumns;
+                        int measuredRows;
+                        int charWidth;
+                        int charHeight;
+                        this.terminalControl.GetTerminalDimensions(out measuredColumns, out measuredRows);
+                        this.terminalControl.GetCellPixelSize(out charWidth, out charHeight);
                         charWidth = Math.Max(1, charWidth);
                         charHeight = Math.Max(1, charHeight);
                         uint cols = ClampTerminalDimension((uint)measuredColumns, 20, MaxTerminalColumns);
