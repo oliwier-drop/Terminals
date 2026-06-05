@@ -30,6 +30,8 @@ namespace Terminals.Plugins.SshNet
 
         public SshVersion SshVersion { get; set; }
 
+        public SshConnectionProfile ConnectionProfile { get; set; }
+
         public AuthMethod AuthMethod { get; set; }
 
         /// <summary>Name of a key in application SSH key store.</summary>
@@ -49,6 +51,7 @@ namespace Terminals.Plugins.SshNet
                 X11Forwarding = this.X11Forwarding,
                 EnableCompression = this.EnableCompression,
                 SshVersion = this.SshVersion,
+                ConnectionProfile = this.ConnectionProfile,
                 AuthMethod = this.AuthMethod,
                 KeyTag = this.KeyTag,
                 KeyFile = this.KeyFile

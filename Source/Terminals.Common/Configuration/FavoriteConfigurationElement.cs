@@ -125,6 +125,7 @@ namespace Terminals
                                                        SshX11Forwarding = this.SshX11Forwarding,
                                                        SshEnableCompression = this.SshEnableCompression,
                                                        SshVersion = this.SshVersion,
+                                                       SshConnectionProfile = this.SshConnectionProfile,
                                                        Port = this.Port,
                                                        Protocol = this.Protocol,
                                                        RedirectClipboard = this.RedirectClipboard,
@@ -659,6 +660,16 @@ namespace Terminals
             }
             set {
                 this["sshVersion"] = value;
+            }
+        }
+
+        [ConfigurationProperty("sshConnectionProfile", IsRequired = false, DefaultValue = (byte)0)]
+        public byte SshConnectionProfile {
+            get {
+                return (byte)this["sshConnectionProfile"];
+            }
+            set {
+                this["sshConnectionProfile"] = value;
             }
         }
 

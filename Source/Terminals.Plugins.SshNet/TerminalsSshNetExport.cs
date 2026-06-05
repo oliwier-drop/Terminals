@@ -18,6 +18,7 @@ namespace Terminals.Plugins.SshNet
                 context.WriteElementString("sshX11Forwarding", context.Favorite.SshX11Forwarding.ToString());
                 context.WriteElementString("sshEnableCompression", context.Favorite.SshEnableCompression.ToString());
                 context.WriteElementString("sshVersion", context.Favorite.SshVersion.ToString());
+                context.WriteElementString("sshConnectionProfile", context.Favorite.SshConnectionProfile.ToString());
             }
         }
     }

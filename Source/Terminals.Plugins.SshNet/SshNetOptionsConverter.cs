@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (c) oliwier-drop and contributors ó fork-authored code.
+// Copyright (c) oliwier-drop and contributors ù fork-authored code.
 // See LICENSE.md and FORK-AUTHORED.md at the repository root.
 using Terminals.Common.Connections;
 
@@ -16,6 +16,7 @@ namespace Terminals.Plugins.SshNet
             options.X11Forwarding = source.SshX11Forwarding;
             options.EnableCompression = source.SshEnableCompression;
             options.SshVersion = (SshVersion)source.SshVersion;
+            options.ConnectionProfile = (SshConnectionProfile)source.SshConnectionProfile;
             options.AuthMethod = source.AuthMethod;
             options.KeyTag = source.KeyTag;
             options.KeyFile = source.SSHKeyFile;
@@ -30,6 +31,7 @@ namespace Terminals.Plugins.SshNet
             destination.SshX11Forwarding = options.X11Forwarding;
             destination.SshEnableCompression = options.EnableCompression;
             destination.SshVersion = (byte)options.SshVersion;
+            destination.SshConnectionProfile = (byte)options.ConnectionProfile;
             destination.AuthMethod = options.AuthMethod;
             destination.KeyTag = options.KeyTag ?? string.Empty;
             destination.SSHKeyFile = options.KeyFile ?? string.Empty;
