@@ -54,6 +54,8 @@ The items below were planned as intermediate wins on the current `TextRenderer.D
 |----------|----------|
 | bash prompt | Correct cursor, wrap, Enter / Backspace |
 | `ls --color` | SGR colors |
+| `ip -c a` | Colored interface names (`ip a` without `-c` is monochrome by design) |
+| `echo $TERM` | `xterm-256color` |
 | `nano` / `vim` | Alternate screen (`?1049`), Ctrl shortcuts |
 | Window resize | Log `PTY CxR` matches UI after ~200 ms |
 | Fullscreen / 4K / ultrawide | Responsive typing; no perceptible lag per keystroke |

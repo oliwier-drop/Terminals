@@ -64,6 +64,62 @@ namespace Tests.SshNet
         }
 
         [TestMethod]
+        public void Build_Sgr256Color_SetsForeground()
+        {
+            var session = new SshVtSession();
+            session.Push("\x1B[38;5;208mO\x1B[0m");
+
+            var grid = TerminalCellGridBuilder.Build(
+                session.Controller,
+                0,
+                session.Rows,
+                session.Columns);
+
+            Assert.AreEqual('O', grid[0, 0].CodePoint);
+            Assert.AreNotEqual(
+                VtNetColorHelper.DefaultForegroundColor.ToArgb(),
+                grid[0, 0].Foreground.ToArgb());
+        }
+
+        [TestMethod]
+        public void Build_SgrTrueColor_SetsForeground()
+        {
+            var session = new SshVtSession();
+            session.Push("\x1B[38;2;255;128;0mT\x1B[0m");
+
+            var grid = TerminalCellGridBuilder.Build(
+                session.Controller,
+                0,
+                session.Rows,
+                session.Columns);
+
+            Assert.AreEqual('T', grid[0, 0].CodePoint);
+            Color orange = grid[0, 0].Foreground;
+            Assert.IsTrue(orange.R >= 200);
+            Assert.IsTrue(orange.G >= 100);
+            Assert.IsTrue(orange.B <= 80);
+        }
+
+        [TestMethod]
+        public void Build_SgrBoldBlue_SetsForeground()
+        {
+            var session = new SshVtSession();
+            session.Push("\x1B[1;34mB\x1B[0m");
+
+            var grid = TerminalCellGridBuilder.Build(
+                session.Controller,
+                0,
+                session.Rows,
+                session.Columns);
+
+            Assert.AreEqual('B', grid[0, 0].CodePoint);
+            Assert.IsTrue(grid[0, 0].Bold);
+            Assert.AreNotEqual(
+                VtNetColorHelper.DefaultForegroundColor.ToArgb(),
+                grid[0, 0].Foreground.ToArgb());
+        }
+
+        [TestMethod]
         public void Build_SgrReset_RestoresDefaultForeground()
         {
             var session = new SshVtSession();

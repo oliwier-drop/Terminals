@@ -13,12 +13,33 @@ namespace Terminals.Plugins.SshNet
 {
     internal static class SshNetShellStreamHelper
     {
-        internal const string DefaultTerminalType = "xterm";
+        internal const string DefaultTerminalType = "xterm-256color";
+        private const int DefaultShellBufferSize = 1024;
         internal const uint DefaultShellColumns = 80;
         internal const uint DefaultShellRows = 24;
         internal static readonly TimeSpan InitialShellWaitTimeout = TimeSpan.FromSeconds(5);
 
         private static readonly FieldInfo ChannelField = typeof(ShellStream).GetField("_channel", BindingFlags.Instance | BindingFlags.NonPublic);
+
+        internal static ShellStream CreateShellStream(
+            SshClient client,
+            uint columns,
+            uint rows,
+            uint widthPixels,
+            uint heightPixels)
+        {
+            if (client == null)
+                throw new ArgumentNullException(nameof(client));
+
+            return client.CreateShellStream(
+                DefaultTerminalType,
+                columns,
+                rows,
+                widthPixels,
+                heightPixels,
+                DefaultShellBufferSize,
+                CreateCompatTerminalModes());
+        }
 
         internal static IDictionary<TerminalModes, uint> CreateCompatTerminalModes()
         {
