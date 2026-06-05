@@ -23,6 +23,8 @@ namespace Terminals.Forms.Controls
 
         #endregion
 
+        private bool suppressLayoutSave;
+
         internal void AssignToolStripsLocationChangedEventHandler()
         {
             this.ToolbarStd.EndDrag += new EventHandler(this.OnToolStripLocationChanged);
@@ -33,11 +35,14 @@ namespace Terminals.Forms.Controls
 
         private void OnToolStripLocationChanged(object sender, EventArgs e)
         {
-            SaveLayout();
+            this.SaveLayout();
         }
 
         internal void SaveLayout()
         {
+            if (this.suppressLayoutSave)
+                return;
+
             try
             {
                 this.SaveAllPanels();
@@ -53,23 +58,24 @@ namespace Terminals.Forms.Controls
         private void SaveAllPanels()
         {
             var newSettings = new ToolStripSettings();
-            SaveToolStripPanel(this.TopToolStripPanel, "Top", newSettings);
-            SaveToolStripPanel(this.LeftToolStripPanel, "Left", newSettings);
-            SaveToolStripPanel(this.RightToolStripPanel, "Right", newSettings);
-            SaveToolStripPanel(this.BottomToolStripPanel, "Bottom", newSettings);
+            int dpi = this.DeviceDpi;
+            SaveToolStripPanel(this.TopToolStripPanel, "Top", newSettings, dpi);
+            SaveToolStripPanel(this.LeftToolStripPanel, "Left", newSettings, dpi);
+            SaveToolStripPanel(this.RightToolStripPanel, "Right", newSettings, dpi);
+            SaveToolStripPanel(this.BottomToolStripPanel, "Bottom", newSettings, dpi);
             newSettings.Save();
         }
 
-        private static void SaveToolStripPanel(ToolStripPanel panel, String position, ToolStripSettings newSettings)
+        private static void SaveToolStripPanel(ToolStripPanel panel, String position, ToolStripSettings newSettings, int dpi)
         {
             for (Int32 rowIndex = 0; rowIndex < panel.Rows.Length; rowIndex++)
             {
                 ToolStripPanelRow row = panel.Rows[rowIndex];
-                SaveToolStripRow(row, newSettings, position, rowIndex);
+                SaveToolStripRow(row, newSettings, position, rowIndex, dpi);
             }
         }
 
-        private static void SaveToolStripRow(ToolStripPanelRow row, ToolStripSettings newSettings, String position, int rowIndex)
+        private static void SaveToolStripRow(ToolStripPanelRow row, ToolStripSettings newSettings, String position, int rowIndex, int dpi)
         {
             foreach (ToolStrip strip in row.Controls)
             {
@@ -80,6 +86,7 @@ namespace Terminals.Forms.Controls
                 setting.Top = strip.Top;
                 setting.Name = strip.Name;
                 setting.Visible = strip.Visible;
+                setting.Dpi = dpi;
                 newSettings.Add(newSettings.Count, setting);
             }
         }
@@ -87,7 +94,11 @@ namespace Terminals.Forms.Controls
         internal void LoadToolStripsState()
         {
             ToolStripSettings newSettings = ToolStripSettings.Load();
-            if (newSettings != null && newSettings.Count > 0)
+            if (newSettings == null || newSettings.Count == 0)
+                return;
+
+            this.suppressLayoutSave = true;
+            try
             {
                 this.SuspendLayout();
                 this.ClearAllPanels();
@@ -98,9 +109,36 @@ namespace Terminals.Forms.Controls
                 // http://www.visualbasicask.com/visual-basic-language/toolstrips-controls-becoming-desorganized.shtml
                 AplyAllPanelPositions(newSettings);
                 this.ResumeLayout(true);
+                this.PerformLayout();
 
+                this.EnsureEssentialToolbarsVisible();
                 ChangeLockState();
             }
+            finally
+            {
+                this.suppressLayoutSave = false;
+            }
+        }
+
+        /// <summary>Recover when persisted layout hid both menu and standard toolbar (fullscreen save bug).</summary>
+        internal void EnsureEssentialToolbarsVisible()
+        {
+            if (this.MenuStrip == null || this.ToolbarStd == null)
+                return;
+
+            if (!NeedsEssentialToolbarRecovery(this.MenuStrip.Visible, this.ToolbarStd.Visible))
+                return;
+
+            this.MenuStrip.Visible = true;
+            this.ToolbarStd.Visible = true;
+
+            if (this.StandardToolbarToolStripMenuItem != null)
+                this.StandardToolbarToolStripMenuItem.Checked = true;
+        }
+
+        internal static bool NeedsEssentialToolbarRecovery(bool menuStripVisible, bool toolbarStdVisible)
+        {
+            return !menuStripVisible && !toolbarStdVisible;
         }
 
         private void ClearAllPanels()
@@ -116,8 +154,10 @@ namespace Terminals.Forms.Controls
             foreach (ToolStripSetting setting in newSettings.Values)
             {
                 ToolStrip strip = this.FindToolStripForSetting(setting);
+                if (strip == null)
+                    continue;
+
                 strip.GripStyle = ToolStripGripStyle.Visible;
-                //ChangeToolStripLock(strip);
                 ApplyLastPosition(setting, strip);
             }
         }
@@ -186,7 +226,7 @@ namespace Terminals.Forms.Controls
             ToolStripPanel toolStripPanel = GetToolStripPanelToJoin(setting);
             if (!toolStripPanel.Controls.Contains(strip))
             {
-                Point lastPosition = new Point(setting.Left, setting.Top);
+                Point lastPosition = GetScaledPosition(setting);
                 toolStripPanel.Join(strip, lastPosition);
             }
             else // set position only when comming from fullscreen
@@ -195,10 +235,24 @@ namespace Terminals.Forms.Controls
             }
         }
 
-        private static void ApplyLastPosition(ToolStripSetting setting, ToolStrip strip)
+        private void ApplyLastPosition(ToolStripSetting setting, ToolStrip strip)
         {
-            strip.Left = setting.Left;
-            strip.Top = setting.Top;
+            if (strip == null)
+                return;
+
+            Point scaled = GetScaledPosition(setting);
+            strip.Left = scaled.X;
+            strip.Top = scaled.Y;
+        }
+
+        private Point GetScaledPosition(ToolStripSetting setting)
+        {
+            int savedDpi = setting.Dpi > 0 ? setting.Dpi : 96;
+            int currentDpi = this.DeviceDpi > 0 ? this.DeviceDpi : 96;
+            float scale = currentDpi / (float)savedDpi;
+            int left = (int)Math.Round(setting.Left * scale);
+            int top = (int)Math.Round(setting.Top * scale);
+            return new Point(Math.Max(0, left), Math.Max(0, top));
         }
 
         private ToolStripPanel GetToolStripPanelToJoin(ToolStripSetting setting)

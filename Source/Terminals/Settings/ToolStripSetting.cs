@@ -14,10 +14,13 @@ namespace Terminals
         public Int32 Left { get; set; }
         public Int32 Top { get; set; }
 
+        /// <summary>DPI when saved; 0 or 96 means legacy 96 dpi coordinates.</summary>
+        public Int32 Dpi { get; set; }
+
         public override String ToString()
         {
-            return String.Format("ToolStripSetting:Name={0},Visible={1},Row={2},Position=[{3},{4}],Dock={5}",
-                                    this.Name, this.Visible, this.Row, this.Left, this.Top, this.Dock);
+            return String.Format("ToolStripSetting:Name={0},Visible={1},Row={2},Position=[{3},{4}],Dock={5},Dpi={6}",
+                                    this.Name, this.Visible, this.Row, this.Left, this.Top, this.Dock, this.Dpi);
         }
     }
 }

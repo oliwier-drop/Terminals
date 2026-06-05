@@ -3,6 +3,7 @@ using System.IO;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Terminals;
 using Terminals.Configuration;
+using Terminals.Forms.Controls;
 
 namespace Tests.UserInterface
 {
@@ -75,6 +76,35 @@ namespace Tests.UserInterface
             var newSettings = new ToolStripSettings();
             newSettings.Add(IRELEVANT_KEY, new ToolStripSetting() {Left = IRELEVANT_LEFT});
             newSettings.Save();
+        }
+
+        [TestMethod]
+        public void NeedsEssentialToolbarRecovery_BothHidden_ReturnsTrue()
+        {
+            Assert.IsTrue(ToolStripContainer.NeedsEssentialToolbarRecovery(false, false));
+        }
+
+        [TestMethod]
+        public void NeedsEssentialToolbarRecovery_MenuVisible_ReturnsFalse()
+        {
+            Assert.IsFalse(ToolStripContainer.NeedsEssentialToolbarRecovery(true, false));
+        }
+
+        [TestMethod]
+        public void NeedsEssentialToolbarRecovery_ToolbarVisible_ReturnsFalse()
+        {
+            Assert.IsFalse(ToolStripContainer.NeedsEssentialToolbarRecovery(false, true));
+        }
+
+        [TestMethod]
+        public void ToolStripSetting_Dpi_RoundTripsInSaveLoad()
+        {
+            var newSettings = new ToolStripSettings();
+            newSettings.Add(IRELEVANT_KEY, new ToolStripSetting { Left = IRELEVANT_LEFT, Dpi = 144 });
+            newSettings.Save();
+
+            var loaded = ToolStripSettings.Load();
+            Assert.AreEqual(144, loaded[IRELEVANT_KEY].Dpi);
         }
     }
 }

@@ -53,9 +53,6 @@ namespace Terminals
                 this.SetFullScreen(goFullScreen);
                 mainForm.menuLoader.UpdateSwitchFullScreenMenuItemsVisibility(this.fullScreen);
 
-                if (!goFullScreen)
-                    mainForm.LoadWindowState();
-
                 this.fullScreen = goFullScreen;
                 this.SwitchingFullScreen = false;
                 mainForm.ResumeLayout();
@@ -166,7 +163,6 @@ namespace Terminals
                 this.stdToolbarState = this.mainForm.toolbarStd.Visible;
                 this.specialToolbarState = this.mainForm.SpecialCommandsToolStrip.Visible;
                 this.favToolbarState = this.mainForm.favoriteToolBar.Visible;
-                mainForm.toolStripContainer.SaveLayout();
             }
 
             private void HideToolBar(Boolean goFullScreen)

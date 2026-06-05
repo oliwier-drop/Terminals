@@ -249,7 +249,32 @@ namespace Terminals
         {
             this.AssingTitle();
             this.HideShowFavoritesPanel(settings.ShowFavoritePanel);
+        }
+
+        private void LoadToolStripLayout()
+        {
             this.toolStripContainer.LoadToolStripsState();
+            this.toolStripContainer.EnsureEssentialToolbarsVisible();
+            this.SyncToolbarMenuCheckboxes();
+        }
+
+        private void SyncToolbarMenuCheckboxes()
+        {
+            this.standardToolbarToolStripMenuItem.Checked = this.toolbarStd.Visible;
+            this.menubarToolStripMenuItem.Checked = this.menuStrip.Visible;
+            this.toolStripMenuItemShowHideFavoriteToolbar.Checked = this.favoriteToolBar.Visible;
+            this.shortcutsToolStripMenuItem.Checked = this.SpecialCommandsToolStrip.Visible;
+        }
+
+        private void EnsureToolbarsVisibleBeforeSave()
+        {
+            if (!this.menuStrip.Visible && !this.toolbarStd.Visible)
+            {
+                this.menuStrip.Visible = true;
+                this.toolbarStd.Visible = true;
+            }
+
+            this.SyncToolbarMenuCheckboxes();
         }
 
         internal void UpdateControls()
@@ -496,6 +521,7 @@ namespace Terminals
         {
             // Get initial window state, location and after the form has finished loading
             this.SetWindowState();
+            this.LoadToolStripLayout();
         }
 
         private void MainForm_KeyUp(object sender, KeyEventArgs e)
@@ -554,6 +580,7 @@ namespace Terminals
 
             this.MainWindowNotifyIcon.Visible = false;
             CloseOpenedConnections(e);
+            this.EnsureToolbarsVisibleBeforeSave();
             this.toolStripContainer.SaveLayout();
 
             if (!e.Cancel)
@@ -1274,7 +1301,7 @@ namespace Terminals
 
         private void RebuildToolbarsToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            this.LoadWindowState();
+            this.LoadToolStripLayout();
         }
 
         // todo Move openig putty tools to putty plugin as menu extender
