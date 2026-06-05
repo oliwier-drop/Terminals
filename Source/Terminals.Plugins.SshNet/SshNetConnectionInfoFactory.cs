@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (c) oliwier-drop and contributors ó fork-authored code.
+// Copyright (c) oliwier-drop and contributors ù fork-authored code.
 // See LICENSE.md and FORK-AUTHORED.md at the repository root.
 using System;
 using System.Windows.Forms;
@@ -12,8 +12,6 @@ namespace Terminals.Plugins.SshNet
 {
     internal static class SshNetConnectionInfoFactory
     {
-        private static readonly Type ZlibType = typeof(ConnectionInfo).Assembly.GetType("Renci.SshNet.Compression.Zlib", false);
-
         /// <summary>SSH.NET default; applied explicitly so callers can rely on a bounded connect wait.</summary>
         internal static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(30);
 
@@ -67,7 +65,15 @@ namespace Terminals.Plugins.SshNet
             {
                 Timeout = ConnectTimeout
             };
-            ApplyCompression(connectionInfo, sshOptions != null && sshOptions.EnableCompression);
+
+            SshConnectionProfile profile = sshOptions != null
+                ? sshOptions.ConnectionProfile
+                : SshConnectionProfile.Server;
+            SshAlgorithmProfiles.Apply(connectionInfo, profile);
+
+            bool enableCompression = sshOptions != null && sshOptions.EnableCompression;
+            if (profile != SshConnectionProfile.NetworkDevice)
+                ApplyCompression(connectionInfo, enableCompression);
 
             bool x11 = sshOptions != null && sshOptions.X11Forwarding;
             bool pageantAuth = sshOptions != null && sshOptions.EnablePagentAuthentication;
@@ -96,9 +102,7 @@ namespace Terminals.Plugins.SshNet
                 return;
 
             connectionInfo.CompressionAlgorithms.Clear();
-            connectionInfo.CompressionAlgorithms.Add("zlib@openssh.com", typeof(ZlibOpenSsh));
-            if (ZlibType != null)
-                connectionInfo.CompressionAlgorithms.Add("zlib", ZlibType);
+            connectionInfo.CompressionAlgorithms.Add("zlib@openssh.com", () => new ZlibOpenSsh());
             connectionInfo.CompressionAlgorithms.Add("none", null);
         }
     }
