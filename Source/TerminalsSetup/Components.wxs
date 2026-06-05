@@ -144,6 +144,24 @@
       <Component Id="SshNetVtNetCore" Guid="E6A0C3B4-5D7F-6A1C-0E9F-3F4A5B6C7D8E">
         <File Source="$(var.Terminals.Plugins.SshNet.TargetDir)VtNetCore.dll" KeyPath="yes" Checksum="yes"/>
       </Component>
+      <Component Id="SshNetBouncyCastle" Guid="F7B1D4C5-6E8A-7B2D-1F0A-4A5B6C7D8E9F">
+        <File Source="$(var.Terminals.Plugins.SshNet.TargetDir)BouncyCastle.Cryptography.dll" KeyPath="yes" Checksum="yes"/>
+      </Component>
+      <Component Id="SshNetSystemFormatsAsn1" Guid="A8C2E5D6-7F9B-8C3E-2A1B-5B6C7D8E9F0A">
+        <File Source="$(var.Terminals.Plugins.SshNet.TargetDir)System.Formats.Asn1.dll" KeyPath="yes" Checksum="yes"/>
+      </Component>
+      <Component Id="SshNetSystemBuffers" Guid="B9D3F6E7-8A0C-9D4F-3B2C-6C7D8E9F0A1B">
+        <File Source="$(var.Terminals.Plugins.SshNet.TargetDir)System.Buffers.dll" KeyPath="yes" Checksum="yes"/>
+      </Component>
+      <Component Id="SshNetSystemMemory" Guid="C0E4A7F8-9B1D-0E5A-4C3D-7D8E9F0A1B2C">
+        <File Source="$(var.Terminals.Plugins.SshNet.TargetDir)System.Memory.dll" KeyPath="yes" Checksum="yes"/>
+      </Component>
+      <Component Id="SshNetSystemNumericsVectors" Guid="D1F5B8A9-0C2E-1F6B-5D4E-8E9F0A1B2C3D">
+        <File Source="$(var.Terminals.Plugins.SshNet.TargetDir)System.Numerics.Vectors.dll" KeyPath="yes" Checksum="yes"/>
+      </Component>
+      <Component Id="SshNetSystemRuntimeCompilerServicesUnsafe" Guid="E2A6C9B0-1D3F-2A7C-6E5F-9F0A1B2C3D4E">
+        <File Source="$(var.Terminals.Plugins.SshNet.TargetDir)System.Runtime.CompilerServices.Unsafe.dll" KeyPath="yes" Checksum="yes"/>
+      </Component>
     </ComponentGroup>
     <ComponentGroup Id="PuttyComponents">
       <Component Id="puttyexe" Guid="3944DCB6-AF12-47DC-B929-90BAFAF87518" Directory="PUTTYRESOURCESFOLDER">

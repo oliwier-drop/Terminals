@@ -42,25 +42,25 @@ The items below were planned as intermediate wins on the current `TextRenderer.D
 - [x] **Glyph atlas** — pre-raster ASCII + lazy cache; Consolas regular/bold/italic/bold-italic
 - [x] **Invalidation** — row-hash diff; repaint dirty rows only; full repaint on scroll / ESC / resize
 - [x] **Hi-DPI** — `OnDpiChanged`, atlas rebuild per `DeviceDpi`; host `app.manifest` PerMonitorV2
-- [ ] **Optional later:** DirectWrite or SkiaSharp atlas if GDI+ limits are hit; parser layer unchanged
 - **References:** [VtNetCore.UWP](https://github.com/darrenstarr/VtNetCore.UWP) (paint pattern), [xterm ctlseqs](https://invisible-island.net/xterm/ctlseqs/ctlseqs.html), Windows Terminal glyph pipeline
+
+### Planned — post v1.0.2 (resize & rendering)
+
+**Goal:** window resize should feel responsive (closer to standalone PuTTY) while keeping stable PTY signaling and typing latency on large displays.
+
+**Context:** today `SshTerminalControl` debounces resize at **200 ms** and applies UI geometry, full frame repaint, and `TerminalResized` → PTY in one step (`OnResizeDebounceTick`). Perceived lag vs. desktop PuTTY is mostly this coupling, not SSH transport.
+
+**Priority:**
+
+1. [ ] **Local resize UI** — split UI from PTY:
+   - **Immediate (on `Resize` / `Layout`):** recalc cell metrics, `SyncSessionGeometry`, `RebuildFrameCache`, `Invalidate`
+   - **Debounced (e.g. 100–150 ms, separate timer):** `TerminalResized` → `TrySendWindowChange` only
+2. [ ] **SSH.NET 2025.x** — upgrade when convenient; replace reflection-based PTY resize (`TrySendWindowChange` on `_channel`) with public `ChangeWindowSize` API; retest network-device algorithm profiles
+3. [ ] **DirectWrite or SkiaSharp atlas** (optional, if profiling shows GDI+ still limits after local resize) — faster full-frame repaint on resize / scroll / 4K; `VirtualTerminalController` + cell grid unchanged
 
 ### Planned — UX (optional, after or parallel to phase 3)
 
 - [ ] **Local echo (type-ahead)** — show typed characters immediately before server echo returns (easier once cell-level invalidation exists)
-
-### Manual verification (SSH terminal)
-
-| Scenario | Expected |
-|----------|----------|
-| bash prompt | Correct cursor, wrap, Enter / Backspace |
-| `ls --color` | SGR colors |
-| `ip -c a` | Colored interface names (`ip a` without `-c` is monochrome by design) |
-| `echo $TERM` | `xterm-256color` |
-| `nano` / `vim` | Alternate screen (`?1049`), Ctrl shortcuts |
-| Window resize | Log `PTY CxR` matches UI after ~200 ms |
-| Fullscreen / 4K / ultrawide | Responsive typing; no perceptible lag per keystroke |
-| Hi-DPI display | Sharp glyphs; correct cell size vs. PTY dimensions |
 
 ### Architecture
 
@@ -84,12 +84,61 @@ The items below were planned as intermediate wins on the current `TextRenderer.D
 
 ---
 
-## Changelog (high level)
+## Releases (wdrożone)
 
-| When | What |
-|------|------|
-| Phase 1 | SSH.NET plugin, credentials, known hosts |
-| Phase 2 | VtNetCore migration, .NET 4.8, GDI+ terminal |
-| Post-2 | Render + keyboard fixes on large displays |
-| Phase 3 | Glyph atlas renderer; row-diff invalidation; Hi-DPI; incremental GDI+ path superseded |
+Szczegóły instalatorów: [Docs/RELEASE-v1.0.0-notes.md](Docs/RELEASE-v1.0.0-notes.md), [v1.0.1](Docs/RELEASE-v1.0.1-notes.md), [v1.0.2](Docs/RELEASE-v1.0.2-notes.md).
+
+### v1.0.0 — pierwsza publiczna wersja forka
+
+Baza: **Terminals 4.0.1** (MS-CL). Wymagania: Windows 10/11, **.NET Framework 4.8**. Artefakty: `TerminalsSetup_1.0.0.msi`, `Terminals_v1.0.0.zip`.
+
+**SSH.NET plugin (nowy, GPL-3.0):**
+
+- Transport **SSH.NET 2020.0.2** — hasło, klucz prywatny, keyboard-interactive; weryfikacja known hosts (bez auto-trust)
+- Odłączenie SSH od pluginu PuTTY — **PuTTY zostaje tylko dla Telnet**
+- **VtNetCore** 1.0.30 zamiast `AnsiTerminalScreen` + `RichTextBox` (`SshVtSession`, `SshTerminalControl`)
+- Klawiatura: strzałki, F-keys, Ctrl/Alt, wklejanie; skróty dla `nano` / `vim`
+- PTY dopasowany do UI (metryki Consolas, debounced resize 200 ms, `IPostConnectTerminalSync`)
+- Wydajność renderowania: cache klatek, coalesce 16 ms; optymalizacje na dużych ekranach
+- **Faza 3 — renderer:** siatka komórek, glyph atlas, row-diff invalidation, Hi-DPI (PerMonitorV2), zaznaczanie tekstu w strumieniu
+- Testy jednostkowe pluginu SSH (sesja, known hosts, renderer, selekcja)
+
+**UI / packaging forka:**
+
+- Ikony protokołu na zakładkach, zamykanie zakładki (×)
+- Branding forka w aplikacji i MSI
+
+**Bez zmian (upstream):** RDP, VNC, VMRC, ICA, Web i pozostałe protokoły.
+
+### v1.0.1 — stabilność Hi-DPI i jakość sesji SSH
+
+Patch po v1.0.0. Artefakty: `TerminalsSetup_1.0.1.msi`, `Terminals_v1.0.1.zip`.
+
+**UI / layout:**
+
+- Naprawa widoczności toolbara po fullscreen i zapisie layoutu PerMonitorV2
+- Skalowanie okien Settings, New Connection i edycji połączeń na monitorach Hi-DPI
+
+**SSH:**
+
+- PTY **`xterm-256color`** — kolory SGR (`ls --color`, `ip -c a`)
+- Handshake SSH poza wątkiem UI; aplikacja zamykalna podczas connect
+- Lepszy feedback connect (timeout 30 s, status, czyszczenie ekranu przed MOTD)
+
+**Instalator:** metadane wydawcy **Oliwier Drop**; opcjonalne podpisywanie Authenticode ([CODE_SIGNING.md](Docs/CODE_SIGNING.md)).
+
+### v1.0.2 — profile połączeń i nowoczesne algorytmy SSH *(wdrożone)*
+
+Patch po v1.0.1. Artefakty: `TerminalsSetup_1.0.2.msi`, `Terminals_v1.0.2.zip`.
+
+**SSH:**
+
+- Upgrade **SSH.NET 2024.2.0** + zależności runtime (`System.Memory`, `System.Buffers`, …) — `rsa-sha2-256` / `rsa-sha2-512`, ETM MACs
+- **Profile połączenia** (panel SSH Options):
+  - **Server** — domyślny; `xterm-256color`, pełny zestaw algorytmów, opcjonalna kompresja
+  - **Network device** — przełączniki/routery (np. Extreme EXOS); ograniczone KEX/cipher/MAC, PTY `vt100`, bez czekania na MOTD
+- Log connect: negocjowane host-key i KEX
+- Testy profili i algorytmów; dokumentacja release
+
+**Planowane po v1.0.2:** local resize UI, SSH.NET 2025.x (publiczne PTY resize), opcjonalnie DirectWrite/Skia — sekcja wyżej.
 

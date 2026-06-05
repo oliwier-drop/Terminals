@@ -21,8 +21,18 @@ Patch release after v1.0.1 — SSH.NET upgrade and network-device connection pro
 
 ## Upgrade from v1.0.1
 
+- MSI major upgrade replaces the previous install (same `UpgradeCode`)
+- Install folder: `Program Files\Terminals-fork-1.0.2`
+- Portable ZIP: extract over your existing folder or use a new directory
 - Existing SSH favorites default to **Server** profile (unchanged behavior)
 - For Extreme Networks switches with `rsa-sha2-256` host key, set profile to **Network device** in connection SSH Options
+
+## Files
+
+| Asset | Description |
+|-------|-------------|
+| `TerminalsSetup_1.0.2.msi` | Per-machine installer (WiX) |
+| `Terminals_v1.0.2.zip` | Portable layout |
 
 ## Licenses
 
