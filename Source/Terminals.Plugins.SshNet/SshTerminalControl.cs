@@ -122,6 +122,16 @@ namespace Terminals.Plugins.SshNet
             rows = this.Rows;
         }
 
+        /// <summary>Sync VT buffer size with the control and return columns used for line wrapping.</summary>
+        internal int PrepareOutputColumns()
+        {
+            this.SyncSessionGeometry(force: true);
+            int columns = this.session.Columns;
+            if (columns < 1)
+                columns = this.Columns;
+            return Math.Max(columns, 1);
+        }
+
         internal void GetCellPixelSize(out int width, out int height)
         {
             this.EnsureCellMetrics();

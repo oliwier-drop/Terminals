@@ -14,6 +14,9 @@ namespace Terminals.Plugins.SshNet
     {
         private static readonly Type ZlibType = typeof(ConnectionInfo).Assembly.GetType("Renci.SshNet.Compression.Zlib", false);
 
+        /// <summary>SSH.NET default; applied explicitly so callers can rely on a bounded connect wait.</summary>
+        internal static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(30);
+
         internal const string SshVersion1NotSupported = "SSH.NET supports SSH protocol 2 only. Change the SSH version in connection options.";
 
         internal static bool TryCreate(
@@ -60,7 +63,10 @@ namespace Terminals.Plugins.SshNet
             if (!SshNetAuthenticationBuilder.TryBuildMethods(userName, password, sshOptions, sshKeys, owner, out methods, out error))
                 return false;
 
-            var connectionInfo = new ConnectionInfo(host, port, userName, methods);
+            var connectionInfo = new ConnectionInfo(host, port, userName, methods)
+            {
+                Timeout = ConnectTimeout
+            };
             ApplyCompression(connectionInfo, sshOptions != null && sshOptions.EnableCompression);
 
             bool x11 = sshOptions != null && sshOptions.X11Forwarding;

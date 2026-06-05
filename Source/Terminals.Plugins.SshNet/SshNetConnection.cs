@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (c) oliwier-drop and contributors — fork-authored code.
+// Copyright (c) oliwier-drop and contributors  fork-authored code.
 // See LICENSE.md and FORK-AUTHORED.md at the repository root.
 using System;
 using System.Text;
@@ -95,7 +95,6 @@ namespace Terminals.Plugins.SshNet
 
             int generation = Interlocked.Increment(ref this.connectGeneration);
             this.isConnecting = true;
-            this.terminalControl.AppendAnsi("\r\nConnecting...\r\n");
 
             string credentialError;
             if (!this.TryPrepareSessionCredentials(out credentialError))
@@ -105,6 +104,9 @@ namespace Terminals.Plugins.SshNet
                 completed(false);
                 return;
             }
+
+            int timeoutSeconds = (int)SshNetConnectionInfoFactory.ConnectTimeout.TotalSeconds;
+            this.ScheduleConnectingStatusMessage(generation, timeoutSeconds);
 
             Task.Factory.StartNew(
                 () =>
@@ -124,11 +126,17 @@ namespace Terminals.Plugins.SshNet
                     if (generation != this.connectGeneration)
                         return;
 
+                    if (this.IsDisposed || !this.IsHandleCreated)
+                    {
+                        this.isConnecting = false;
+                        return;
+                    }
+
                     this.BeginInvoke(new Action(() =>
                     {
                         this.isConnecting = false;
 
-                        if (generation != this.connectGeneration)
+                        if (this.IsDisposed || generation != this.connectGeneration)
                             return;
 
                         if (success)
@@ -136,9 +144,12 @@ namespace Terminals.Plugins.SshNet
                             string initial = this.pendingInitialShellText;
                             this.pendingInitialShellText = null;
                             if (!string.IsNullOrEmpty(initial))
-                                this.terminalControl.AppendAnsiAndFlush(initial);
+                                this.terminalControl.AppendAnsiAndFlush("\x1b[2J\x1b[H" + initial);
                             else
+                            {
+                                this.terminalControl.AppendAnsiAndFlush("\x1b[2J\x1b[H");
                                 this.terminalControl.FlushPendingOutput();
+                            }
 
                             this.terminalControl.FocusTerminal();
                             this.Update();
@@ -242,7 +253,9 @@ namespace Terminals.Plugins.SshNet
             this.sshClient.ErrorOccurred += this.SshClientOnErrorOccurred;
             try
             {
-                this.ConnectSshClientOnUiThread(owner);
+                // Connect on the worker thread so the WinForms UI stays responsive (host-key and
+                // keyboard-interactive prompts marshal to the UI thread via SshUiThread).
+                this.sshClient.Connect();
             }
             catch (SshAuthenticationException exception)
             {
@@ -253,7 +266,7 @@ namespace Terminals.Plugins.SshNet
             }
             catch (SshConnectionException exception)
             {
-                this.LastError = "SSH connection failed.\r\n" + exception.Message;
+                this.LastError = FormatConnectionFailureMessage(exception);
                 Logging.Error("SSH.NET connection failed.", exception);
                 this.CleanupSessionForReconnect();
                 return false;
@@ -275,13 +288,12 @@ namespace Terminals.Plugins.SshNet
             this.GetShellGeometryOnUiThread(owner, out columns, out rows, out widthPixels, out heightPixels);
             this.ApplyTerminalSessionSizeOnUiThread(owner, columns, rows);
 
-            this.shellStream = this.sshClient.CreateShellStream(
-                SshNetShellStreamHelper.DefaultTerminalType,
+            this.shellStream = SshNetShellStreamHelper.CreateShellStream(
+                this.sshClient,
                 columns,
                 rows,
                 widthPixels,
-                heightPixels,
-                1024);
+                heightPixels);
 
             if (!SshNetShellStreamHelper.IsChannelOpen(this.shellStream))
             {
@@ -316,16 +328,74 @@ namespace Terminals.Plugins.SshNet
             return true;
         }
 
-        private void ConnectSshClientOnUiThread(IWin32Window owner)
+        private static string FormatConnectionFailureMessage(SshConnectionException exception)
         {
-            Control invokeTarget = owner as Control;
-            if (invokeTarget == null)
-                invokeTarget = this.IsHandleCreated ? (Control)this : this.terminalControl;
+            string detail = exception != null ? exception.Message : string.Empty;
+            if (ContainsTimeoutHint(detail)
+                || (exception != null && exception.InnerException != null && ContainsTimeoutHint(exception.InnerException.Message)))
+            {
+                return "SSH connection timed out after "
+                    + (int)SshNetConnectionInfoFactory.ConnectTimeout.TotalSeconds
+                    + " seconds. Check host name, port, firewall, VPN, and that the server is reachable.\r\n"
+                    + detail;
+            }
 
-            if (invokeTarget != null && invokeTarget.IsHandleCreated && invokeTarget.InvokeRequired)
-                invokeTarget.Invoke(new Action(() => this.sshClient.Connect()));
+            return "SSH connection failed.\r\n" + detail;
+        }
+
+        private static bool ContainsTimeoutHint(string message)
+        {
+            return !string.IsNullOrEmpty(message)
+                && (message.IndexOf("timeout", StringComparison.OrdinalIgnoreCase) >= 0
+                    || message.IndexOf("timed out", StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+
+        private void ScheduleConnectingStatusMessage(int generation, int timeoutSeconds)
+        {
+            Action append = () =>
+            {
+                if (this.IsDisposed || generation != this.connectGeneration || !this.isConnecting)
+                    return;
+
+                int columns = this.terminalControl.PrepareOutputColumns();
+                this.terminalControl.AppendAnsi(this.FormatConnectingStatusMessage(timeoutSeconds, columns));
+            };
+
+            if (this.terminalControl.IsHandleCreated)
+                this.terminalControl.BeginInvoke(append);
             else
-                this.sshClient.Connect();
+                append();
+        }
+
+        private string FormatConnectingStatusMessage(int timeoutSeconds, int columns)
+        {
+            string host = this.Favorite != null ? this.Favorite.ServerName ?? string.Empty : string.Empty;
+            int port = this.Favorite != null ? this.Favorite.Port : 0;
+
+            if (columns < 1)
+                columns = (int)SshNetShellStreamHelper.DefaultShellColumns;
+
+            string[] candidates =
+            {
+                string.Format("Connecting to {0}:{1} (up to {2} s)...", host, port, timeoutSeconds),
+                string.Format("Connecting to {0}:{1} ({2} s)...", host, port, timeoutSeconds),
+                string.Format("Connecting to {0}:{1}...", host, port),
+                string.Format("{0}:{1} ({2}s)...", host, port, timeoutSeconds),
+                string.Format("Connecting ({0} s)...", timeoutSeconds),
+                "Connecting..."
+            };
+
+            string line = candidates[candidates.Length - 1];
+            foreach (string candidate in candidates)
+            {
+                if (candidate.Length <= columns)
+                {
+                    line = candidate;
+                    break;
+                }
+            }
+
+            return "\r\n" + line + "\r\n";
         }
 
         private void ApplyTerminalSessionSizeOnUiThread(IWin32Window owner, uint columns, uint rows)

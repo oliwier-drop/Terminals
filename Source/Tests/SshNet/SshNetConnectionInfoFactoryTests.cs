@@ -72,6 +72,25 @@ namespace Tests.SshNet
         }
 
         [TestMethod]
+        public void TryCreate_SetsBoundedConnectTimeout()
+        {
+            SshNetConnectionSetup setup;
+            string error;
+            bool created = SshNetConnectionInfoFactory.TryCreate(
+                "host",
+                22,
+                CreateCredentials(),
+                new SshOptions { AuthMethod = AuthMethod.Password },
+                null,
+                null,
+                out setup,
+                out error);
+
+            Assert.IsTrue(created, error);
+            Assert.AreEqual(SshNetConnectionInfoFactory.ConnectTimeout, setup.ConnectionInfo.Timeout);
+        }
+
+        [TestMethod]
         public void TryCreate_WithPassword_RegistersPasswordAuthentication()
         {
             SshNetConnectionSetup setup;
