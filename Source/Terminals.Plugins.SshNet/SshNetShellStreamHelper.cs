@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (c) oliwier-drop and contributors ó fork-authored code.
+// Copyright (c) oliwier-drop and contributors ù fork-authored code.
 // See LICENSE.md and FORK-AUTHORED.md at the repository root.
 using System;
 using System.Collections.Generic;
@@ -14,6 +14,7 @@ namespace Terminals.Plugins.SshNet
     internal static class SshNetShellStreamHelper
     {
         internal const string DefaultTerminalType = "xterm-256color";
+        internal const string NetworkDeviceTerminalType = "vt100";
         private const int DefaultShellBufferSize = 1024;
         internal const uint DefaultShellColumns = 80;
         internal const uint DefaultShellRows = 24;
@@ -26,19 +27,41 @@ namespace Terminals.Plugins.SshNet
             uint columns,
             uint rows,
             uint widthPixels,
-            uint heightPixels)
+            uint heightPixels,
+            SshConnectionProfile profile)
         {
             if (client == null)
                 throw new ArgumentNullException(nameof(client));
 
             return client.CreateShellStream(
-                DefaultTerminalType,
+                GetTerminalType(profile),
                 columns,
                 rows,
                 widthPixels,
                 heightPixels,
                 DefaultShellBufferSize,
-                CreateCompatTerminalModes());
+                CreateTerminalModes(profile));
+        }
+
+        internal static string GetTerminalType(SshConnectionProfile profile)
+        {
+            return profile == SshConnectionProfile.NetworkDevice
+                ? NetworkDeviceTerminalType
+                : DefaultTerminalType;
+        }
+
+        internal static TimeSpan GetInitialShellWaitTimeout(SshConnectionProfile profile)
+        {
+            return profile == SshConnectionProfile.NetworkDevice
+                ? TimeSpan.Zero
+                : InitialShellWaitTimeout;
+        }
+
+        internal static IDictionary<TerminalModes, uint> CreateTerminalModes(SshConnectionProfile profile)
+        {
+            return profile == SshConnectionProfile.NetworkDevice
+                ? CreateNetworkDeviceTerminalModes()
+                : CreateCompatTerminalModes();
         }
 
         internal static IDictionary<TerminalModes, uint> CreateCompatTerminalModes()
@@ -64,12 +87,24 @@ namespace Terminals.Plugins.SshNet
             };
         }
 
+        private static IDictionary<TerminalModes, uint> CreateNetworkDeviceTerminalModes()
+        {
+            return new Dictionary<TerminalModes, uint>
+            {
+                { TerminalModes.ICRNL, 1 },
+                { TerminalModes.ONLCR, 1 },
+                { TerminalModes.TTY_OP_ISPEED, 38400 },
+                { TerminalModes.TTY_OP_OSPEED, 38400 }
+            };
+        }
+
         /// <summary>
         /// Blocks until the shell sends at least one byte (without ShellStream.Expect, which can drain the channel).
         /// </summary>
         internal static bool TryWaitForShellOutput(
             ShellStream shellStream,
             Encoding encoding,
+            SshConnectionProfile profile,
             out string initialText,
             out bool immediateEof)
         {
@@ -88,10 +123,17 @@ namespace Terminals.Plugins.SshNet
                 return false;
             }
 
+            int waitMs = (int)GetInitialShellWaitTimeout(profile).TotalMilliseconds;
+            if (waitMs <= 0)
+            {
+                initialText = string.Empty;
+                Logging.Info("SSH: network-device profile ó shell ready without initial MOTD wait.");
+                return true;
+            }
+
             var builder = new StringBuilder();
             var buffer = new byte[4096];
             int elapsed = 0;
-            int waitMs = (int)InitialShellWaitTimeout.TotalMilliseconds;
 
             while (elapsed < waitMs)
             {

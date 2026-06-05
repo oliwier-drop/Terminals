@@ -288,12 +288,15 @@ namespace Terminals.Plugins.SshNet
             this.GetShellGeometryOnUiThread(owner, out columns, out rows, out widthPixels, out heightPixels);
             this.ApplyTerminalSessionSizeOnUiThread(owner, columns, rows);
 
+            SshConnectionProfile connectionProfile = this.GetConnectionProfile();
+
             this.shellStream = SshNetShellStreamHelper.CreateShellStream(
                 this.sshClient,
                 columns,
                 rows,
                 widthPixels,
-                heightPixels);
+                heightPixels,
+                connectionProfile);
 
             if (!SshNetShellStreamHelper.IsChannelOpen(this.shellStream))
             {
@@ -306,7 +309,12 @@ namespace Terminals.Plugins.SshNet
 
             string initialText;
             bool immediateEof;
-            if (!SshNetShellStreamHelper.TryWaitForShellOutput(this.shellStream, this.streamEncoding, out initialText, out immediateEof))
+            if (!SshNetShellStreamHelper.TryWaitForShellOutput(
+                this.shellStream,
+                this.streamEncoding,
+                connectionProfile,
+                out initialText,
+                out immediateEof))
             {
                 this.LastError = immediateEof
                     ? "SSH shell closed before any output was received. Verify password (OpenSSH uses password auth on this host) and that the account has a normal login shell."
@@ -319,13 +327,32 @@ namespace Terminals.Plugins.SshNet
             this.readLoopHadInitialOutput = !string.IsNullOrEmpty(initialText);
             this.pendingInitialShellText = initialText;
             this.readLoopPendingStart = true;
+            this.LogConnectedSession(columns, rows, connectionProfile);
+            return true;
+        }
+
+        private SshConnectionProfile GetConnectionProfile()
+        {
+            SshOptions sshOptions = this.connectionSetup != null
+                ? this.connectionSetup.SshOptions
+                : this.Favorite != null ? this.Favorite.ProtocolProperties as SshOptions : null;
+            return sshOptions != null ? sshOptions.ConnectionProfile : SshConnectionProfile.Server;
+        }
+
+        private void LogConnectedSession(uint columns, uint rows, SshConnectionProfile connectionProfile)
+        {
+            ConnectionInfo info = this.connectionSetup != null ? this.connectionSetup.ConnectionInfo : null;
+            string terminalType = SshNetShellStreamHelper.GetTerminalType(connectionProfile);
             Logging.Info(string.Format(
-                "SSH: connected to {0}:{1} (PTY {2}x{3}).",
+                "SSH: connected to {0}:{1} (PTY {2}x{3}, TERM={4}, profile={5}, hostKey={6}, kex={7}).",
                 this.Favorite.ServerName,
                 this.Favorite.Port,
                 columns,
-                rows));
-            return true;
+                rows,
+                terminalType,
+                connectionProfile,
+                info != null ? info.CurrentHostKeyAlgorithm ?? "n/a" : "n/a",
+                info != null ? info.CurrentKeyExchangeAlgorithm ?? "n/a" : "n/a"));
         }
 
         private static string FormatConnectionFailureMessage(SshConnectionException exception)

@@ -15,6 +15,8 @@ namespace Terminals.Plugins.SshNet
         public SshNetOptionsControl()
         {
             this.InitializeComponent();
+            this.comboBoxProfile.SelectedIndex = 0;
+            this.UpdateCompressionAvailability();
         }
 
         public void LoadFrom(IFavorite favorite)
@@ -25,8 +27,12 @@ namespace Terminals.Plugins.SshNet
         private void LoadFrom(ProtocolOptions protocolOptions)
         {
             var sshOptions = protocolOptions as SshOptions;
-            if (sshOptions != null)
-                this.checkBoxCompression.Checked = sshOptions.EnableCompression;
+            if (sshOptions == null)
+                return;
+
+            this.comboBoxProfile.SelectedIndex = ProfileToIndex(sshOptions.ConnectionProfile);
+            this.checkBoxCompression.Checked = sshOptions.EnableCompression;
+            this.UpdateCompressionAvailability();
         }
 
         public void SaveTo(IFavorite favorite)
@@ -37,8 +43,34 @@ namespace Terminals.Plugins.SshNet
         private void SaveTo(ProtocolOptions protocolOptions)
         {
             var sshOptions = protocolOptions as SshOptions;
-            if (sshOptions != null)
-                sshOptions.EnableCompression = this.checkBoxCompression.Checked;
+            if (sshOptions == null)
+                return;
+
+            sshOptions.ConnectionProfile = IndexToProfile(this.comboBoxProfile.SelectedIndex);
+            sshOptions.EnableCompression = this.checkBoxCompression.Checked;
+        }
+
+        private void ComboBoxProfile_SelectedIndexChanged(object sender, System.EventArgs e)
+        {
+            this.UpdateCompressionAvailability();
+        }
+
+        private void UpdateCompressionAvailability()
+        {
+            bool networkDevice = this.comboBoxProfile.SelectedIndex == ProfileToIndex(SshConnectionProfile.NetworkDevice);
+            this.checkBoxCompression.Enabled = !networkDevice;
+            if (networkDevice)
+                this.checkBoxCompression.Checked = false;
+        }
+
+        private static int ProfileToIndex(SshConnectionProfile profile)
+        {
+            return profile == SshConnectionProfile.NetworkDevice ? 1 : 0;
+        }
+
+        private static SshConnectionProfile IndexToProfile(int index)
+        {
+            return index == 1 ? SshConnectionProfile.NetworkDevice : SshConnectionProfile.Server;
         }
 
         private void KeysButton_Click(object sender, System.EventArgs e)
