@@ -31,8 +31,32 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="BouncyCastle.Cryptography">
+      <HintPath>..\packages\BouncyCastle.Cryptography.2.4.0\lib\net461\BouncyCastle.Cryptography.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Formats.Asn1">
+      <HintPath>..\packages\System.Formats.Asn1.8.0.1\lib\net462\System.Formats.Asn1.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Buffers">
+      <HintPath>..\packages\System.Buffers.4.5.1\lib\net461\System.Buffers.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Memory">
+      <HintPath>..\packages\System.Memory.4.5.5\lib\net461\System.Memory.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Numerics.Vectors">
+      <HintPath>..\packages\System.Numerics.Vectors.4.5.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe">
+      <HintPath>..\packages\System.Runtime.CompilerServices.Unsafe.4.5.3\lib\net461\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="Renci.SshNet">
-      <HintPath>..\packages\SSH.NET.2020.0.2\lib\net40\Renci.SshNet.dll</HintPath>
+      <HintPath>..\packages\SSH.NET.2024.2.0\lib\net462\Renci.SshNet.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="VtNetCore">
@@ -56,6 +80,8 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Include="SshAlgorithmProfiles.cs" />
+    <Compile Include="SshConnectionProfile.cs" />
     <Compile Include="SshOptions.cs" />
     <Compile Include="SshVersion.cs" />
     <Compile Include="SshProtocol.cs" />
