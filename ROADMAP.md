@@ -12,7 +12,8 @@ Single place for **planned and completed work** on this Terminals fork (SSH.NET 
 
 ### Done
 
-- [x] SSH.NET **2020.0.2** transport (auth, known hosts, deferred connect, `ShellStream`)
+- [x] SSH.NET **2024.2.0** transport (auth, known hosts, deferred connect, `ShellStream`)
+- [x] **Connection profiles** — Server vs Network device (algorithm sets + PTY behavior; Extreme EXOS `rsa-sha2-256`)
 - [x] Retarget host + plugin + tests to **.NET Framework 4.8**
 - [x] **VtNetCore** 1.0.30 — replace `AnsiTerminalScreen` + `RichTextBox` with `SshVtSession` + GDI+ `SshTerminalControl`
 - [x] PTY sizing aligned with UI (Consolas cell metrics, debounced resize, `IPostConnectTerminalSync`)

@@ -8,7 +8,7 @@ This fork focuses on **rewriting the SSH connection layer** using [SSH.NET](http
 
 Work in progress: the `Terminals.Plugins.SshNet` plugin and related integration.
 
-The SSH.NET plugin uses **SSH.NET 2020.0.2** (upgraded from 2016.1.0) for improved algorithms and key support. Authentication supports password, private keys (`KeyFile` / `KeyTag` + application SSH key store), and keyboard-interactive prompts. Host keys are verified against a persisted known-hosts file with a trust prompt (no silent auto-trust). PuTTY Pageant and X11 forwarding are not supported by this plugin.
+The SSH.NET plugin uses **SSH.NET 2024.2.0** for modern algorithms (`rsa-sha2-256`, ETM MACs, and related OpenSSH negotiation). Choose a **connection profile** in SSH Options: **Server** (Linux/OpenSSH, `xterm-256color`) or **Network device** (switches/routers such as Extreme EXOS, constrained algorithms and `vt100` PTY). Authentication supports password, private keys (`KeyFile` / `KeyTag` + application SSH key store), and keyboard-interactive prompts. Host keys are verified against a persisted known-hosts file with a trust prompt (no silent auto-trust). PuTTY Pageant and X11 forwarding are not supported by this plugin.
 
 ### Roadmap
 
@@ -78,7 +78,7 @@ What you need to **build** and **run** this fork. For upstream platform notes (R
 
 | Package | Used by |
 |---------|---------|
-| [SSH.NET](https://www.nuget.org/packages/SSH.NET) **2020.0.2** | `Terminals.Plugins.SshNet` |
+| [SSH.NET](https://www.nuget.org/packages/SSH.NET) **2024.2.0** | `Terminals.Plugins.SshNet` |
 | [VtNetCore](https://www.nuget.org/packages/VtNetCore) **1.0.30** | `Terminals.Plugins.SshNet` (terminal emulation) |
 | log4net, Moq, Entity Framework, etc. | See `packages.config` in each project under `Source/` |
 
