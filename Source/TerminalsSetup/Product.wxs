@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<?define ForkDisplayName = "Terminals (SSH.NET fork) 1.0.2" ?>
-<?define ForkInstallFolder = "Terminals-fork-1.0.2" ?>
+<?define ForkDisplayName = "Terminals (SSH.NET fork) 1.0.3" ?>
+<?define ForkInstallFolder = "Terminals-fork-1.0.3" ?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
   <!--to make new release change all product id, package id and version number-->
-  <Product Id="*" Name="$(var.ForkDisplayName)" Language="1033" Version="1.0.2.0" Manufacturer="Oliwier Drop"
+  <Product Id="*" Name="$(var.ForkDisplayName)" Language="1033" Version="1.0.3.0" Manufacturer="Oliwier Drop"
            UpgradeCode="A8F3C2E1-9B4D-4A6F-B1E2-7C3D5E8F9012">
     <Package Id="*" InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
     <MajorUpgrade Schedule="afterInstallInitialize" DowngradeErrorMessage="A newer version of $(var.ForkDisplayName) is already installed." />
@@ -70,7 +70,7 @@
     <DirectoryRef Id="TerminalsProgramsFolder">
       <Component Id="ApplicationShortcut" Guid="42B36D8B-C5D6-493C-A794-D158800D9229">
         <Shortcut Id="ApplicationStartMenuShortcut"
-             Name="$(var.ForkDisplayName)" Description="Terminals SSH.NET fork v1.0.2 (upstream base 4.0.1)."
+             Name="$(var.ForkDisplayName)" Description="Terminals SSH.NET fork v1.0.3 (upstream base 4.0.1)."
              Target="[INSTALLFOLDER]Terminals.exe" WorkingDirectory="INSTALLFOLDER">
           <Icon Id="terminalsicon.ico" SourceFile="..\Terminals\terminalsicon.ico"/>
         </Shortcut>

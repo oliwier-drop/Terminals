@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("Terminals (SSH.NET fork)")]
-[assembly: AssemblyDescription("SSH.NET fork v1.0.2 — RDP, VNC, SSH, Telnet, ICA, and more")]
+[assembly: AssemblyDescription("SSH.NET fork v1.0.3 — RDP, VNC, SSH, Telnet, ICA, and more")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]

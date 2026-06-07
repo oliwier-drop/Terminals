@@ -6,7 +6,7 @@ Single place for **planned and completed work** on this Terminals fork. Upstream
 
 **Licensing:** fork-authored code is **GPL-3.0** — see [FORK-AUTHORED.md](FORK-AUTHORED.md) and `SPDX-License-Identifier` headers in source files.
 
-Release notes: [v1.0.0](Docs/RELEASE-v1.0.0-notes.md) · [v1.0.1](Docs/RELEASE-v1.0.1-notes.md) · [v1.0.2](Docs/RELEASE-v1.0.2-notes.md)
+Release notes: [v1.0.0](Docs/RELEASE-v1.0.0-notes.md) · [v1.0.1](Docs/RELEASE-v1.0.1-notes.md) · [v1.0.2](Docs/RELEASE-v1.0.2-notes.md) · [v1.0.3](Docs/RELEASE-v1.0.3-notes.md)
 
 ---
 
@@ -41,6 +41,14 @@ Release notes: [v1.0.0](Docs/RELEASE-v1.0.0-notes.md) · [v1.0.1](Docs/RELEASE-v
 - [x] Profile selector UI and network-device PTY behavior
 - [x] Unit tests: profile and algorithm coverage
 
+### Done — `v1.0.3`
+
+- [x] **Local echo (type-ahead)** — guarded optimistic echo for printable SSH input with server-echo suppression
+- [x] **SSH.NET 2025.1.0** — upgrade with public `ShellStream.ChangeWindowSize` for PTY resize
+- [x] **Local resize UI** — split immediate repaint from debounced PTY sync; alternate-screen-safe resize for nano/vim; pixel PTY dimensions
+- [x] **Tab strip shape** — first tab slanted left edge only; subsequent tabs straight vertical edges with right-side close button
+- [x] Unit tests: local echo, SSH.NET helper, VT session, resize, and SSH profile coverage
+
 ### Planned
 
 - [ ] **Tab strip polish** — icon/close/title alignment and sizing on Hi-DPI and mixed-DPI multi-monitor setups
@@ -48,17 +56,7 @@ Release notes: [v1.0.0](Docs/RELEASE-v1.0.0-notes.md) · [v1.0.1](Docs/RELEASE-v
 - [ ] **Tab titles** — consistent truncation, updates on connect/disconnect, and readable names on narrow tabs
 - [ ] **Shell layout pass** — verify and fix toolbar, status bar, tab strip, and saved window layout after fullscreen, restore, and move between monitors
 - [ ] **Dialogs & panels** — spot-check connection editor, favorites, options, and about on scaled displays; fix clipping, overlap, and anchor issues found in use
-- [ ] **Local resize UI** — split UI from PTY: immediate geometry/repaint on resize; debounced `TerminalResized` → `TrySendWindowChange` only (today coupled at 200 ms in `SshTerminalControl`)
-- [ ] **Local echo (type-ahead)** — show typed characters immediately before server echo returns
-- [ ] **SSH.NET 2025.x** — upgrade when convenient; replace reflection-based PTY resize with public `ChangeWindowSize` API; retest network-device profiles
 - [ ] **Optional later:** DirectWrite or SkiaSharp atlas if GDI+ limits are hit; parser layer unchanged
 
 **References:** [VtNetCore](https://github.com/darrenstarr/VtNetCore), [VtNetCore.UWP](https://github.com/darrenstarr/VtNetCore.UWP), [xterm ctlseqs](https://invisible-island.net/xterm/ctlseqs/ctlseqs.html)
 
----
-
-## Not in scope (this fork)
-
-- PuTTY Pageant / X11 in SSH.NET plugin
-- Replacing upstream RDP/VNC/Telnet stacks
-- Further incremental `DrawText` / span-cache tuning (superseded by phase 3)
