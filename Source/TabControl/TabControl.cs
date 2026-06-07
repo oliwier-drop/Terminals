@@ -790,6 +790,20 @@ namespace TabControl
             return currentItem != null && currentItem.CanClose ? TabCloseExtraWidth : 0;
         }
 
+        private bool IsFirstVisibleTab(TabControlItem item)
+        {
+            for (int i = 0; i < Items.Count; i++)
+            {
+                TabControlItem candidate = Items[i];
+                if (!candidate.Visible && !DesignMode)
+                    continue;
+
+                return candidate == item;
+            }
+
+            return false;
+        }
+
         private Rectangle GetTabCloseButtonRect(TabControlItem currentItem, RectangleF buttonRect)
         {
             int y = (int)(buttonRect.Top + (buttonRect.Height - TabCloseButtonSize) / 2f);
@@ -836,12 +850,41 @@ namespace TabControl
             }
         }
 
-        private float GetTabTextLeft(TabControlItem currentItem, RectangleF buttonRect)
+        private float GetTabTextLeft(TabControlItem currentItem, RectangleF buttonRect, bool isFirstVisibleTab)
         {
             if (currentItem.TabIcon == null)
-                return buttonRect.Left + buttonRect.Height - 4;
+            {
+                if (isFirstVisibleTab)
+                    return buttonRect.Left + buttonRect.Height - 4;
+
+                return buttonRect.Left + TabIconLeftMargin;
+            }
 
             return buttonRect.Left + TabIconLeftMargin + TabIconSize + TabIconTextGap;
+        }
+
+        private static void AppendStraightTabOutline(GraphicsPath path, RectangleF buttonRect, int mtop)
+        {
+            path.AddLine(buttonRect.Left, buttonRect.Bottom - 1, buttonRect.Left, mtop + 2);
+            path.AddLine(buttonRect.Left, mtop + 2, buttonRect.Right - 3, mtop);
+            path.AddLine(buttonRect.Right, mtop + 2, buttonRect.Right, buttonRect.Bottom - 1);
+            path.AddLine(buttonRect.Right - 4, buttonRect.Bottom - 1, buttonRect.Left, buttonRect.Bottom - 1);
+        }
+
+        private static void AppendFirstTabOutlineLtr(GraphicsPath path, RectangleF buttonRect, int mtop)
+        {
+            path.AddLine(buttonRect.Left - 10, buttonRect.Bottom - 1, buttonRect.Left + (buttonRect.Height / 2) - 4, mtop + 4);
+            path.AddLine(buttonRect.Left + (buttonRect.Height / 2) + 2, mtop, buttonRect.Right - 3, mtop);
+            path.AddLine(buttonRect.Right, mtop + 2, buttonRect.Right, buttonRect.Bottom - 1);
+            path.AddLine(buttonRect.Right - 4, buttonRect.Bottom - 1, buttonRect.Left, buttonRect.Bottom - 1);
+        }
+
+        private static void AppendFirstTabOutlineRtl(GraphicsPath path, RectangleF buttonRect, int mtop)
+        {
+            path.AddLine(buttonRect.Right + 10, buttonRect.Bottom - 1, buttonRect.Right - (buttonRect.Height / 2) + 4, mtop + 4);
+            path.AddLine(buttonRect.Right - (buttonRect.Height / 2) - 2, mtop, buttonRect.Left + 3, mtop);
+            path.AddLine(buttonRect.Left, mtop + 2, buttonRect.Left, buttonRect.Bottom - 1);
+            path.AddLine(buttonRect.Left + 4, buttonRect.Bottom - 1, buttonRect.Right, buttonRect.Bottom - 1);
         }
 
         private void OnCalcTabPage(Graphics g, TabControlItem currentItem)
@@ -871,7 +914,8 @@ namespace TabControl
 
         internal void OnDrawTabPage(Graphics g, TabControlItem currentItem)
         {
-            bool isFirstTab = Items.IndexOf(currentItem) == 0;
+            bool isFirstVisibleTab = IsFirstVisibleTab(currentItem);
+            bool rightToLeft = RightToLeft == RightToLeft.Yes;
             Font currentFont = Font;
 
             if (currentItem == SelectedItem)
@@ -884,7 +928,6 @@ namespace TabControl
             RectangleF buttonRect = currentItem.StripRect;
             int iconExtra = GetTabIconExtraWidth(currentItem);
             int closeExtra = GetTabCloseExtraWidth(currentItem);
-            bool rightToLeft = RightToLeft == RightToLeft.Yes;
 
             GraphicsPath path = new GraphicsPath();
             LinearGradientBrush brush = null;
@@ -894,19 +937,11 @@ namespace TabControl
 
             if (RightToLeft == RightToLeft.No)
             {
-                if (currentItem == SelectedItem || isFirstTab)
-                {
-                    path.AddLine(buttonRect.Left - 10, buttonRect.Bottom - 1, buttonRect.Left + (buttonRect.Height / 2) - 4, mtop + 4);
-                }
+                if (isFirstVisibleTab)
+                    AppendFirstTabOutlineLtr(path, buttonRect, mtop);
                 else
-                {
-                    path.AddLine(buttonRect.Left, buttonRect.Bottom - 1, buttonRect.Left, buttonRect.Bottom - (buttonRect.Height / 2) - 2);
-                    path.AddLine(buttonRect.Left, buttonRect.Bottom - (buttonRect.Height / 2) - 3, buttonRect.Left + (buttonRect.Height / 2) - 4, mtop + 3);
-                }
+                    AppendStraightTabOutline(path, buttonRect, mtop);
 
-                path.AddLine(buttonRect.Left + (buttonRect.Height / 2) + 2, mtop, buttonRect.Right - 3, mtop);
-                path.AddLine(buttonRect.Right, mtop + 2, buttonRect.Right, buttonRect.Bottom - 1);
-                path.AddLine(buttonRect.Right - 4, buttonRect.Bottom - 1, buttonRect.Left, buttonRect.Bottom - 1);
                 path.CloseFigure();
                 try {
                     if(currentItem == SelectedItem) {
@@ -931,12 +966,13 @@ namespace TabControl
 
                 if (currentItem == SelectedItem)
                 {
-                    g.DrawLine(new Pen(brush), buttonRect.Left - 9, buttonRect.Height + 2, buttonRect.Left + buttonRect.Width - 1, buttonRect.Height + 2);
+                    float lineLeft = isFirstVisibleTab ? buttonRect.Left - 9 : buttonRect.Left;
+                    g.DrawLine(new Pen(brush), lineLeft, buttonRect.Height + 2, buttonRect.Left + buttonRect.Width - 1, buttonRect.Height + 2);
                 }
 
                 DrawTabIcon(g, currentItem, buttonRect, false);
 
-                PointF textLoc = new PointF(GetTabTextLeft(currentItem, buttonRect), buttonRect.Top + (buttonRect.Height / 2) - (textSize.Height / 2) - 3);
+                PointF textLoc = new PointF(GetTabTextLeft(currentItem, buttonRect, isFirstVisibleTab), buttonRect.Top + (buttonRect.Height / 2) - (textSize.Height / 2) - 3);
                 RectangleF textRect = buttonRect;
                 textRect.Location = textLoc;
                 textRect.Width = (float)buttonRect.Width - (textRect.Left - buttonRect.Left) - 4 - closeExtra;
@@ -961,19 +997,11 @@ namespace TabControl
 
             if (rightToLeft)
             {
-                if (currentItem == SelectedItem || isFirstTab)
-                {
-                    path.AddLine(buttonRect.Right + 10, buttonRect.Bottom - 1, buttonRect.Right - (buttonRect.Height / 2) + 4, mtop + 4);
-                }
+                if (isFirstVisibleTab)
+                    AppendFirstTabOutlineRtl(path, buttonRect, mtop);
                 else
-                {
-                    path.AddLine(buttonRect.Right, buttonRect.Bottom - 1, buttonRect.Right, buttonRect.Bottom - (buttonRect.Height / 2) - 2);
-                    path.AddLine(buttonRect.Right, buttonRect.Bottom - (buttonRect.Height / 2) - 3, buttonRect.Right - (buttonRect.Height / 2) + 4, mtop + 3);
-                }
+                    AppendStraightTabOutline(path, buttonRect, mtop);
 
-                path.AddLine(buttonRect.Right - (buttonRect.Height / 2) - 2, mtop, buttonRect.Left + 3, mtop);
-                path.AddLine(buttonRect.Left, mtop + 2, buttonRect.Left, buttonRect.Bottom - 1);
-                path.AddLine(buttonRect.Left + 4, buttonRect.Bottom - 1, buttonRect.Right, buttonRect.Bottom - 1);
                 path.CloseFigure();
 
                 if (currentItem == SelectedItem)
@@ -990,7 +1018,8 @@ namespace TabControl
 
                 if (currentItem == SelectedItem)
                 {
-                    g.DrawLine(new Pen(brush), buttonRect.Right + 9, buttonRect.Height + 2, buttonRect.Right - buttonRect.Width + 1, buttonRect.Height + 2);
+                    float lineRight = isFirstVisibleTab ? buttonRect.Right + 9 : buttonRect.Right;
+                    g.DrawLine(new Pen(brush), lineRight, buttonRect.Height + 2, buttonRect.Right - buttonRect.Width + 1, buttonRect.Height + 2);
                 }
 
                 DrawTabIcon(g, currentItem, buttonRect, true);
