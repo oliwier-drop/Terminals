@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (c) oliwier-drop and contributors — fork-authored code.
+// Copyright (c) oliwier-drop and contributors - fork-authored code.
 // See LICENSE.md and FORK-AUTHORED.md at the repository root.
 using System;
+using System.Reflection;
 using System.Text;
 using VtNetCore.VirtualTerminal;
+using VtNetCore.VirtualTerminal.Enums;
 using VtNetCore.XTermParser;
 
 namespace Terminals.Plugins.SshNet
@@ -11,8 +13,13 @@ namespace Terminals.Plugins.SshNet
     /// <summary>Wraps VtNetCore parser and virtual terminal buffer for one SSH session.</summary>
     internal sealed class SshVtSession
     {
+        private static readonly FieldInfo ActiveBufferField = typeof(VirtualTerminalController).GetField(
+            "<ActiveBuffer>k__BackingField",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
         private readonly VirtualTerminalController controller;
         private readonly DataConsumer consumer;
+        private bool alternateScreenActive;
 
         internal SshVtSession()
         {
@@ -37,6 +44,11 @@ namespace Terminals.Plugins.SshNet
             get { return this.controller.VisibleRows; }
         }
 
+        internal bool IsAlternateScreenActive
+        {
+            get { return this.alternateScreenActive; }
+        }
+
         internal void Resize(int columns, int rows)
         {
             if (columns < 1)
@@ -45,6 +57,7 @@ namespace Terminals.Plugins.SshNet
                 rows = 24;
 
             this.controller.ResizeView(columns, rows);
+            this.RefreshAlternateScreenFlag();
         }
 
         internal void Push(string text)
@@ -52,7 +65,7 @@ namespace Terminals.Plugins.SshNet
             if (string.IsNullOrEmpty(text))
                 return;
 
-            this.consumer.Push(Encoding.UTF8.GetBytes(text));
+            this.PushBytes(Encoding.UTF8.GetBytes(text));
         }
 
         internal void Push(byte[] data, int offset, int count)
@@ -62,13 +75,28 @@ namespace Terminals.Plugins.SshNet
 
             if (offset == 0 && count == data.Length)
             {
-                this.consumer.Push(data);
+                this.PushBytes(data);
                 return;
             }
 
             var slice = new byte[count];
             Buffer.BlockCopy(data, offset, slice, 0, count);
-            this.consumer.Push(slice);
+            this.PushBytes(slice);
+        }
+
+        private void PushBytes(byte[] data)
+        {
+            this.consumer.Push(data);
+            this.RefreshAlternateScreenFlag();
+        }
+
+        private void RefreshAlternateScreenFlag()
+        {
+            if (ActiveBufferField == null)
+                return;
+
+            object value = ActiveBufferField.GetValue(this.controller);
+            this.alternateScreenActive = value is EActiveBuffer buffer && buffer == EActiveBuffer.Alternative;
         }
 
         internal bool ConsumeChangedFlag()
@@ -80,9 +108,14 @@ namespace Terminals.Plugins.SshNet
             return true;
         }
 
-        internal string GetScreenTextForTest()
+        internal string GetScreenText()
         {
             return this.controller.GetScreenText();
+        }
+
+        internal string GetScreenTextForTest()
+        {
+            return this.GetScreenText();
         }
     }
 }

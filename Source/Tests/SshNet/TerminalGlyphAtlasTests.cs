@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (c) oliwier-drop and contributors — fork-authored code.
+// Copyright (c) oliwier-drop and contributors - fork-authored code.
 // See LICENSE.md and FORK-AUTHORED.md at the repository root.
 using System.Drawing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -21,7 +21,7 @@ namespace Tests.SshNet
                 Assert.IsTrue(atlas.TryGetGlyphRect('A', GlyphStyle.Regular, out var rectA));
                 Assert.IsTrue(rectA.Width > 0 && rectA.Height > 0);
                 Assert.IsTrue(RectContainsVisiblePixels(atlas.AtlasBitmap, rectA));
-                Assert.IsTrue(atlas.TryGetGlyphRect('█', GlyphStyle.Bold, out var rectBlock));
+                Assert.IsTrue(atlas.TryGetGlyphRect('\u2588', GlyphStyle.Bold, out var rectBlock));
                 Assert.IsTrue(rectBlock.Width > 0);
                 Assert.IsTrue(RectContainsVisiblePixels(atlas.AtlasBitmap, rectBlock));
             }
@@ -33,9 +33,9 @@ namespace Tests.SshNet
             using (var metrics = new TerminalFontMetrics(10f, 1f))
             using (var atlas = new TerminalGlyphAtlas(metrics))
             {
-                Assert.IsTrue(atlas.TryGetGlyphRect('ą', GlyphStyle.Regular, out var rect));
+                Assert.IsTrue(atlas.TryGetGlyphRect('\u0105', GlyphStyle.Regular, out var rect));
                 Assert.IsTrue(rect.Width > 0);
-                Assert.IsTrue(atlas.TryGetGlyphRect('ą', GlyphStyle.Regular, out var rectAgain));
+                Assert.IsTrue(atlas.TryGetGlyphRect('\u0105', GlyphStyle.Regular, out var rectAgain));
                 Assert.AreEqual(rect, rectAgain);
             }
         }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (c) oliwier-drop and contributors — fork-authored code.
+// Copyright (c) oliwier-drop and contributors - fork-authored code.
 // See LICENSE.md and FORK-AUTHORED.md at the repository root.
 using System;
 using System.Collections.Generic;
@@ -275,7 +275,7 @@ namespace Terminals.Plugins.SshNet.Rendering
             if (string.IsNullOrEmpty(chunk))
                 return false;
 
-            // Only buffer-wide changes — SGR (\x1b[31m etc.) uses per-row diff.
+            // Only buffer-wide changes - SGR (\x1b[31m etc.) uses per-row diff.
             return chunk.IndexOf("\x1b[?1049", StringComparison.Ordinal) >= 0
                 || chunk.IndexOf("\x1b[2J", StringComparison.Ordinal) >= 0
                 || chunk.IndexOf("\x1b[3J", StringComparison.Ordinal) >= 0;

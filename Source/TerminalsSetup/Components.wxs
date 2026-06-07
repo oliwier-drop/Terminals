@@ -162,6 +162,15 @@
       <Component Id="SshNetSystemRuntimeCompilerServicesUnsafe" Guid="E2A6C9B0-1D3F-2A7C-6E5F-9F0A1B2C3D4E">
         <File Source="$(var.Terminals.Plugins.SshNet.TargetDir)System.Runtime.CompilerServices.Unsafe.dll" KeyPath="yes" Checksum="yes"/>
       </Component>
+      <Component Id="SshNetMicrosoftBclAsyncInterfaces" Guid="F3B7D0C1-2E4F-3B8D-7F6A-0A1B2C3D4E5F">
+        <File Source="$(var.Terminals.Plugins.SshNet.TargetDir)Microsoft.Bcl.AsyncInterfaces.dll" KeyPath="yes" Checksum="yes"/>
+      </Component>
+      <Component Id="SshNetMicrosoftExtensionsLoggingAbstractions" Guid="A4C8E1D2-3F5A-4C9E-8A7B-1B2C3D4E5F6A">
+        <File Source="$(var.Terminals.Plugins.SshNet.TargetDir)Microsoft.Extensions.Logging.Abstractions.dll" KeyPath="yes" Checksum="yes"/>
+      </Component>
+      <Component Id="SshNetSystemThreadingTasksExtensions" Guid="B5D9F2E3-4A6B-5D0F-9A8C-2C3D4E5F6A7B">
+        <File Source="$(var.Terminals.Plugins.SshNet.TargetDir)System.Threading.Tasks.Extensions.dll" KeyPath="yes" Checksum="yes"/>
+      </Component>
     </ComponentGroup>
     <ComponentGroup Id="PuttyComponents">
       <Component Id="puttyexe" Guid="3944DCB6-AF12-47DC-B929-90BAFAF87518" Directory="PUTTYRESOURCESFOLDER">

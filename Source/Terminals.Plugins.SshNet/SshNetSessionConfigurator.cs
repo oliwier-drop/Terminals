@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (c) oliwier-drop and contributors — fork-authored code.
+// Copyright (c) oliwier-drop and contributors - fork-authored code.
 // See LICENSE.md and FORK-AUTHORED.md at the repository root.
 using System;
 using Renci.SshNet;
@@ -34,7 +34,22 @@ namespace Terminals.Plugins.SshNet
 
         internal static bool TryResizePty(ShellStream shellStream, uint columns, uint rows)
         {
-            return SshNetShellStreamHelper.TrySendWindowChange(shellStream, columns, rows);
+            return TryResizePty(shellStream, columns, rows, 0u, 0u);
+        }
+
+        internal static bool TryResizePty(
+            ShellStream shellStream,
+            uint columns,
+            uint rows,
+            uint widthPixels,
+            uint heightPixels)
+        {
+            return SshNetShellStreamHelper.TrySendWindowChange(
+                shellStream,
+                columns,
+                rows,
+                widthPixels,
+                heightPixels);
         }
     }
 }

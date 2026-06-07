@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (c) oliwier-drop and contributors ? fork-authored code.
+// Copyright (c) oliwier-drop and contributors - fork-authored code.
 // See LICENSE.md and FORK-AUTHORED.md at the repository root.
 using System;
 using System.Drawing;
@@ -15,7 +15,8 @@ namespace Terminals.Plugins.SshNet
     internal class SshTerminalControl : UserControl
     {
         private const int RenderIntervalMs = 16;
-        private const int ResizeDebounceMs = 200;
+        private const int LocalResizeCoalesceMs = 16;
+        private const int PtyResizeDebounceMs = 50;
         private const int CoalescedRenderThresholdChars = 8192;
         private const int MaxColumns = 260;
         private const int MaxRows = 100;
@@ -23,10 +24,12 @@ namespace Terminals.Plugins.SshNet
         private readonly Action<string> sendInput;
         private readonly SshVtSession session = new SshVtSession();
         private readonly TerminalRenderPipeline renderPipeline = new TerminalRenderPipeline();
+        private readonly SshLocalEchoController localEcho = new SshLocalEchoController();
         private readonly StringBuilder pendingOutput = new StringBuilder();
         private readonly object pendingLock = new object();
         private readonly Timer renderTimer;
-        private readonly Timer resizeDebounceTimer;
+        private readonly Timer localResizeCoalesceTimer;
+        private readonly Timer ptyResizeDebounceTimer;
         private readonly VScrollBar scrollBar;
         private int cellWidth;
         private int cellHeight;
@@ -98,8 +101,11 @@ namespace Terminals.Plugins.SshNet
             this.renderTimer = new Timer { Interval = RenderIntervalMs };
             this.renderTimer.Tick += this.OnRenderTimerTick;
 
-            this.resizeDebounceTimer = new Timer { Interval = ResizeDebounceMs };
-            this.resizeDebounceTimer.Tick += this.OnResizeDebounceTick;
+            this.localResizeCoalesceTimer = new Timer { Interval = LocalResizeCoalesceMs };
+            this.localResizeCoalesceTimer.Tick += this.OnLocalResizeCoalesceTick;
+
+            this.ptyResizeDebounceTimer = new Timer { Interval = PtyResizeDebounceMs };
+            this.ptyResizeDebounceTimer.Tick += this.OnPtyResizeDebounceTick;
 
             this.caretTimer = new Timer { Interval = 500 };
             this.caretTimer.Tick += this.OnCaretTimerTick;
@@ -139,6 +145,11 @@ namespace Terminals.Plugins.SshNet
             height = this.cellHeight;
         }
 
+        internal bool IsAlternateScreenActive
+        {
+            get { return this.session.IsAlternateScreenActive; }
+        }
+
         internal void AppendAnsi(string text)
         {
             if (string.IsNullOrEmpty(text) || this.IsDisposed)
@@ -170,6 +181,22 @@ namespace Terminals.Plugins.SshNet
 
             this.renderTimer.Stop();
             this.DrainAndRender();
+        }
+
+        internal void AppendServerAnsi(string text)
+        {
+            if (string.IsNullOrEmpty(text) || this.IsDisposed)
+                return;
+
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke(new Action<string>(this.AppendServerAnsi), text);
+                return;
+            }
+
+            string filtered = this.localEcho.FilterServerOutput(text);
+            if (!string.IsNullOrEmpty(filtered))
+                this.AppendAnsi(filtered);
         }
 
         internal void FlushPendingOutput()
@@ -210,8 +237,10 @@ namespace Terminals.Plugins.SshNet
             {
                 this.renderTimer.Stop();
                 this.renderTimer.Dispose();
-                this.resizeDebounceTimer.Stop();
-                this.resizeDebounceTimer.Dispose();
+                this.localResizeCoalesceTimer.Stop();
+                this.localResizeCoalesceTimer.Dispose();
+                this.ptyResizeDebounceTimer.Stop();
+                this.ptyResizeDebounceTimer.Dispose();
                 this.caretTimer.Stop();
                 this.caretTimer.Dispose();
                 this.renderPipeline.Dispose();
@@ -283,7 +312,20 @@ namespace Terminals.Plugins.SshNet
         protected override void OnPaint(PaintEventArgs e)
         {
             if (this.frameCache != null)
-                e.Graphics.DrawImageUnscaled(this.frameCache, 0, 0);
+            {
+                int paintableWidth = this.GetPaintableWidth();
+                int paintableHeight = Math.Max(1, this.DisplayRectangle.Height);
+                if (this.frameCache.Width != paintableWidth || this.frameCache.Height != paintableHeight)
+                {
+                    e.Graphics.DrawImage(
+                        this.frameCache,
+                        new Rectangle(0, 0, paintableWidth, paintableHeight));
+                }
+                else
+                {
+                    e.Graphics.DrawImageUnscaled(this.frameCache, 0, 0);
+                }
+            }
             else
                 this.RebuildFrameCache();
 
@@ -334,13 +376,16 @@ namespace Terminals.Plugins.SshNet
                 string toSend = SshTerminalKeyInput.BytesToSendString(sequence);
                 if (!string.IsNullOrEmpty(toSend))
                 {
-                    this.sendInput(toSend);
+                    if (toSend == e.KeyChar.ToString())
+                        this.SendPrintableInput(toSend, e.KeyChar);
+                    else
+                        this.sendInput(toSend);
                     e.Handled = true;
                     return;
                 }
             }
 
-            this.sendInput(e.KeyChar.ToString());
+            this.SendPrintableInput(e.KeyChar.ToString(), e.KeyChar);
             e.Handled = true;
         }
 
@@ -399,7 +444,7 @@ namespace Terminals.Plugins.SshNet
                     e.KeyCode | (e.Shift ? Keys.Shift : Keys.None),
                     out string backspace))
                 {
-                    this.sendInput(backspace);
+                    this.SendBackspaceInput(backspace);
                     e.SuppressKeyPress = true;
                     e.Handled = true;
                     return;
@@ -434,6 +479,53 @@ namespace Terminals.Plugins.SshNet
                 shift,
                 alt,
                 out toSend);
+        }
+
+        private void SendPrintableInput(string text, char keyChar)
+        {
+            this.sendInput(text);
+
+            if (this.session.IsAlternateScreenActive)
+                return;
+
+            string localEchoText;
+            if (this.localEcho.TryCreatePrintableEcho(
+                keyChar,
+                this.session.GetScreenText(),
+                this.session.Controller.CursorState.ShowCursor,
+                out localEchoText))
+            {
+                this.localEcho.RegisterPrintableEcho(localEchoText);
+                this.RenderLocalEcho(localEchoText);
+            }
+        }
+
+        private void SendBackspaceInput(string text)
+        {
+            this.sendInput(text);
+
+            if (this.session.IsAlternateScreenActive)
+                return;
+
+            string localEchoText;
+            if (this.localEcho.TryCreateBackspaceEcho(
+                text,
+                this.session.GetScreenText(),
+                this.session.Controller.CursorState.ShowCursor,
+                out localEchoText))
+            {
+                this.localEcho.CompleteBackspaceUndo(text);
+                this.RenderLocalEcho(localEchoText);
+            }
+        }
+
+        private void RenderLocalEcho(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return;
+
+            this.session.Push(text);
+            this.RenderSessionChanges(text);
         }
 
         private void OnHandleCreated(object sender, EventArgs e)
@@ -575,8 +667,16 @@ namespace Terminals.Plugins.SshNet
             }
 
             this.DrainAndRender();
-            if (!this.renderTimer.Enabled && !this.IsDisposed)
-                this.renderTimer.Start();
+
+            lock (this.pendingLock)
+            {
+                if (this.pendingOutput.Length > 0
+                    && !this.renderTimer.Enabled
+                    && !this.IsDisposed)
+                {
+                    this.renderTimer.Start();
+                }
+            }
         }
 
         private void OnRenderTimerTick(object sender, EventArgs e)
@@ -605,7 +705,11 @@ namespace Terminals.Plugins.SshNet
             }
 
             this.session.Push(chunk);
+            this.RenderSessionChanges(chunk);
+        }
 
+        private void RenderSessionChanges(string chunk)
+        {
             if (!this.session.ConsumeChangedFlag())
                 return;
 
@@ -652,14 +756,69 @@ namespace Terminals.Plugins.SshNet
 
         private void OnTerminalResize(object sender, EventArgs e)
         {
-            this.InvalidateCellMetrics();
-            this.ScheduleTerminalResize();
+            this.ScheduleLocalResizeRepaint();
+            this.SchedulePtyResizeNotification();
         }
 
         private void OnTerminalLayout(object sender, LayoutEventArgs e)
         {
+            this.ScheduleLocalResizeRepaint();
+            this.SchedulePtyResizeNotification();
+        }
+
+        private void ScheduleLocalResizeRepaint()
+        {
+            if (!this.IsHandleCreated || this.IsDisposed)
+                return;
+
+            // nano/vim: skip stretched repaints during drag; wait for debounced PTY sync.
+            if (this.session.IsAlternateScreenActive)
+                return;
+
+            if (!this.localResizeCoalesceTimer.Enabled)
+                this.localResizeCoalesceTimer.Start();
+        }
+
+        private void SchedulePtyResizeNotification()
+        {
+            this.ptyResizeDebounceTimer.Stop();
+            this.ptyResizeDebounceTimer.Start();
+        }
+
+        private void OnLocalResizeCoalesceTick(object sender, EventArgs e)
+        {
+            this.localResizeCoalesceTimer.Stop();
+            this.ApplyImmediateLocalResizeRepaint();
+        }
+
+        private void ApplyImmediateLocalResizeRepaint()
+        {
             this.InvalidateCellMetrics();
-            this.ScheduleTerminalResize();
+            this.EnsureCellMetrics();
+
+            // Full-screen apps (nano/vim) redraw only after SIGWINCH; resizing the VT
+            // buffer early reflows their layout until the server repaints.
+            if (this.session.IsAlternateScreenActive)
+            {
+                this.Invalidate();
+                return;
+            }
+
+            this.ApplySessionSize(this.Columns, this.Rows);
+
+            this.EnsureFrameCacheBitmap();
+            this.renderPipeline.InvalidatePreviousGrid();
+            this.RebuildFrameCache();
+            this.Invalidate();
+        }
+
+        internal void CompletePtyResizeRepaint()
+        {
+            this.localEcho.ResetPendingEcho();
+            this.UpdateScrollRange();
+            this.renderPipeline.InvalidatePreviousGrid();
+            this.RebuildFrameCache();
+            this.Invalidate();
         }
 
         private void InvalidateCellMetrics()
@@ -668,10 +827,12 @@ namespace Terminals.Plugins.SshNet
             this.cachedMetricsHeight = -1;
         }
 
-        private void ScheduleTerminalResize()
+        private void OnPtyResizeDebounceTick(object sender, EventArgs e)
         {
-            this.resizeDebounceTimer.Stop();
-            this.resizeDebounceTimer.Start();
+            this.ptyResizeDebounceTimer.Stop();
+
+            if (this.TerminalResized != null)
+                this.TerminalResized(this, EventArgs.Empty);
         }
 
         private void EnsureCellMetrics()
@@ -684,6 +845,12 @@ namespace Terminals.Plugins.SshNet
             this.RefreshCellMetrics();
             this.cachedMetricsWidth = width;
             this.cachedMetricsHeight = height;
+        }
+
+        internal void SyncSessionGeometry(bool force = false)
+        {
+            this.EnsureCellMetrics();
+            this.ApplySessionSize(this.Columns, this.Rows, force);
         }
 
         private void RefreshCellMetrics()
@@ -967,6 +1134,7 @@ namespace Terminals.Plugins.SshNet
                     return false;
 
                 text = text.Replace("\r\n", "\n").Replace('\r', '\n');
+                this.localEcho.ResetPendingEcho();
                 this.sendInput(text);
                 return true;
             }
@@ -974,25 +1142,6 @@ namespace Terminals.Plugins.SshNet
             {
                 return false;
             }
-        }
-
-        private void OnResizeDebounceTick(object sender, EventArgs e)
-        {
-            this.resizeDebounceTimer.Stop();
-            this.InvalidateCellMetrics();
-            this.SyncSessionGeometry();
-            this.UpdateScrollRange();
-            this.renderPipeline.InvalidatePreviousGrid();
-            this.RebuildFrameCache();
-            this.Invalidate();
-
-            if (this.TerminalResized != null)
-                this.TerminalResized(this, EventArgs.Empty);
-        }
-
-        internal void SyncSessionGeometry(bool force = false)
-        {
-            this.ApplySessionSize(this.Columns, this.Rows, force);
         }
 
         internal void ApplySessionSize(int columns, int rows, bool force = false)

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (c) oliwier-drop and contributors ù fork-authored code.
+// Copyright (c) oliwier-drop and contributors - fork-authored code.
 // See LICENSE.md and FORK-AUTHORED.md at the repository root.
 using System;
 using System.Collections.Generic;
@@ -127,7 +127,7 @@ namespace Terminals.Plugins.SshNet
             if (waitMs <= 0)
             {
                 initialText = string.Empty;
-                Logging.Info("SSH: network-device profile ó shell ready without initial MOTD wait.");
+                Logging.Info("SSH: network-device profile - shell ready without initial MOTD wait.");
                 return true;
             }
 
@@ -281,20 +281,22 @@ namespace Terminals.Plugins.SshNet
 
         internal static bool TrySendWindowChange(ShellStream shellStream, uint columns, uint rows)
         {
-            if (shellStream == null || ChannelField == null)
+            return TrySendWindowChange(shellStream, columns, rows, 0u, 0u);
+        }
+
+        internal static bool TrySendWindowChange(
+            ShellStream shellStream,
+            uint columns,
+            uint rows,
+            uint widthPixels,
+            uint heightPixels)
+        {
+            if (shellStream == null)
                 return false;
 
             try
             {
-                object channel = ChannelField.GetValue(shellStream);
-                if (channel == null)
-                    return false;
-
-                MethodInfo resizeMethod = channel.GetType().GetMethod("SendWindowChangeRequest", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-                if (resizeMethod == null)
-                    return false;
-
-                resizeMethod.Invoke(channel, new object[] { columns, rows, 0u, 0u });
+                shellStream.ChangeWindowSize(columns, rows, widthPixels, heightPixels);
                 return true;
             }
             catch (Exception exception)

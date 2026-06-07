@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (c) oliwier-drop and contributors  fork-authored code.
+// Copyright (c) oliwier-drop and contributors - fork-authored code.
 // See LICENSE.md and FORK-AUTHORED.md at the repository root.
 using System;
 using System.Text;
@@ -556,20 +556,34 @@ namespace Terminals.Plugins.SshNet
             if ((int)cols == this.lastPtyColumns && (int)rowCount == this.lastPtyRows)
                 return;
 
+            int charWidth;
+            int charHeight;
+            this.terminalControl.GetCellPixelSize(out charWidth, out charHeight);
+            uint widthPixels = cols * (uint)Math.Max(1, charWidth);
+            uint heightPixels = rowCount * (uint)Math.Max(1, charHeight);
+
             this.lastPtyColumns = (int)cols;
             this.lastPtyRows = (int)rowCount;
-            this.terminalControl.ApplySessionSize((int)cols, (int)rowCount);
-            if (SshNetSessionConfigurator.TryResizePty(this.shellStream, cols, rowCount))
+
+            if (SshNetSessionConfigurator.TryResizePty(
+                    this.shellStream,
+                    cols,
+                    rowCount,
+                    widthPixels,
+                    heightPixels))
             {
                 Logging.Info(string.Format(
-                    "SSH: terminal resized ({0}) to PTY {1}x{2}.",
+                    "SSH: terminal resized ({0}) to PTY {1}x{2} ({3}x{4}px).",
                     reason,
                     cols,
-                    rowCount));
+                    rowCount,
+                    widthPixels,
+                    heightPixels));
             }
 
+            this.terminalControl.ApplySessionSize((int)cols, (int)rowCount);
+            this.terminalControl.CompletePtyResizeRepaint();
             this.terminalControl.FlushPendingOutput();
-            this.terminalControl.Invalidate();
         }
 
         private IWin32Window GetDialogOwner()
@@ -719,7 +733,11 @@ namespace Terminals.Plugins.SshNet
                 if (Interlocked.CompareExchange(ref this.uiOutputFlushScheduled, 1, 0) != 0)
                     return;
 
-                this.BeginInvoke(new Action(this.FlushUiOutputBatch));
+                Action flush = this.FlushUiOutputBatch;
+                if (this.terminalControl.IsAlternateScreenActive)
+                    this.Invoke(flush);
+                else
+                    this.BeginInvoke(flush);
                 return;
             }
 
@@ -745,13 +763,19 @@ namespace Terminals.Plugins.SshNet
             }
 
             Interlocked.Exchange(ref this.uiOutputFlushScheduled, 0);
-            this.terminalControl.AppendAnsi(chunk);
+            this.terminalControl.AppendServerAnsi(chunk);
 
             lock (this.uiOutputLock)
             {
                 if (this.uiOutputBatch.Length > 0
                     && Interlocked.CompareExchange(ref this.uiOutputFlushScheduled, 1, 0) == 0)
-                    this.BeginInvoke(new Action(this.FlushUiOutputBatch));
+                {
+                    Action flush = this.FlushUiOutputBatch;
+                    if (this.terminalControl.IsAlternateScreenActive)
+                        this.Invoke(flush);
+                    else
+                        this.BeginInvoke(flush);
+                }
             }
         }
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (c) oliwier-drop and contributors — fork-authored code.
+// Copyright (c) oliwier-drop and contributors - fork-authored code.
 // See LICENSE.md and FORK-AUTHORED.md at the repository root.
 using System.Drawing;
 using System.Text;
@@ -46,6 +46,16 @@ namespace Tests.SshNet
         }
 
         [TestMethod]
+        public void Push_BackspaceEraseSequence_RemovesPreviousCharacter()
+        {
+            var session = new SshVtSession();
+            session.Push("ab\b \b");
+
+            TerminalCellGrid grid = BuildGrid(session);
+            Assert.AreEqual("a ", RowText(grid, 0, 2));
+        }
+
+        [TestMethod]
         public void Push_OscTitle_DoesNotWriteTitleToScreen()
         {
             var session = new SshVtSession();
@@ -64,6 +74,18 @@ namespace Tests.SshNet
 
             TerminalCellGrid grid = BuildGrid(session);
             Assert.AreEqual("$ ", RowText(grid, 0, 2));
+        }
+
+        [TestMethod]
+        public void Push_AlternateScreen_TracksActiveScreen()
+        {
+            var session = new SshVtSession();
+
+            session.Push("\x1B[?1049h");
+            Assert.IsTrue(session.IsAlternateScreenActive);
+
+            session.Push("\x1B[?1049l");
+            Assert.IsFalse(session.IsAlternateScreenActive);
         }
 
         [TestMethod]

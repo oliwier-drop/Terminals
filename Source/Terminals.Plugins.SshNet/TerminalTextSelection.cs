@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (c) oliwier-drop and contributors — fork-authored code.
+// Copyright (c) oliwier-drop and contributors - fork-authored code.
 // See LICENSE.md and FORK-AUTHORED.md at the repository root.
 using System;
 using System.Drawing;
@@ -25,7 +25,7 @@ namespace Terminals.Plugins.SshNet
     {
         private static readonly Color SelectionTextColor = Color.Black;
 
-        /// <summary>Stream selection: follows lines (anchor column → EOL → full lines → BOL → end column).</summary>
+        /// <summary>Stream selection: follows lines (anchor column -> EOL -> full lines -> BOL -> end column).</summary>
         internal static void OrderSelectionPoints(
             TerminalCellPoint anchor,
             TerminalCellPoint end,
