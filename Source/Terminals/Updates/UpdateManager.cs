@@ -3,7 +3,6 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-using Terminals.Properties;
 
 namespace Terminals.Updates
 {
@@ -31,7 +30,7 @@ namespace Terminals.Updates
                 const string agent = "Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.2; WOW64; Trident / 6.0)";
                 client.Headers.Add("Accept", "application/json");
                 client.Headers.Add("User-Agent", agent);
-                var releases = client.DownloadString(Settings.Default.ReleasesUrl);
+                var releases = client.DownloadString(ForkBranding.ReleasesApiUrl);
 
                 ServicePointManager.SecurityProtocol = oldValue;
                 return releases;

@@ -1319,7 +1319,7 @@ namespace Terminals
             }
         }
 
-        [ConfigurationProperty("url", DefaultValue = "https://github.com/Terminals-Origin/Terminals/issues")]
+        [ConfigurationProperty("url", DefaultValue = "https://github.com/oliwier-drop/Terminals/issues")]
         public String Url
         {
             get

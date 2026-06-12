@@ -1,6 +1,14 @@
 # Terminals (Fork)
 
-This repository is a **fork** of the open-source [Terminals](https://github.com/Terminals-Origin/Terminals) project — a secure, multi-tab terminal services and remote desktop client (RDP, VNC, VMRC, SSH, Telnet, RAS, ICA Citrix, HTTP/HTTPS, and more).
+This repository is a **fork** of the open-source Terminals project — a secure, multi-tab terminal services and remote desktop client (RDP, VNC, VMRC, SSH, Telnet, RAS, ICA Citrix, HTTP/HTTPS, and more).
+
+## This fork (releases & support)
+
+| | |
+|---|---|
+| **Repository** | [oliwier-drop/Terminals](https://github.com/oliwier-drop/Terminals) |
+| **Releases** | [GitHub Releases](https://github.com/oliwier-drop/Terminals/releases) |
+| **Issues** | [Report issues](https://github.com/oliwier-drop/Terminals/issues) |
 
 ## What this fork is for
 
@@ -141,7 +149,7 @@ This fork is experimental development software. It is not an official release of
 
 ## Contributing
 
-Issues and pull requests are welcome on this fork.
+Issues and pull requests are welcome on [oliwier-drop/Terminals](https://github.com/oliwier-drop/Terminals/issues).
 
 - Changes to **GPL-licensed** components (`Terminals.Plugins.SshNet`, etc.) should be contributed under **GPL-3.0** (compatible with the existing license on that code).
 - Changes to **MS-CL** upstream code should follow [MS-CL](LICENSE.md) terms; consider also proposing them to [Terminals-Origin/Terminals](https://github.com/Terminals-Origin/Terminals) when they belong in the main project.

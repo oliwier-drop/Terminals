@@ -3,6 +3,7 @@
 // See LICENSE.md and FORK-AUTHORED.md at the repository root.
 using System;
 using System.Collections.Generic;
+using System.Text;
 
 namespace Terminals.Plugins.SshNet
 {
@@ -13,16 +14,40 @@ namespace Terminals.Plugins.SshNet
         private const int PromptScanLength = 160;
         private readonly List<PendingEcho> pendingEchoes = new List<PendingEcho>();
         private bool alternateScreenActive;
+        private bool passwordEntryActive;
 
         internal bool HasPendingEcho
         {
             get { return this.pendingEchoes.Count > 0; }
         }
 
+        internal bool IsPasswordEntryActive(string screenText)
+        {
+            return this.passwordEntryActive || IsUnsafePrompt(screenText);
+        }
+
+        internal void RegisterPasswordKeySuppressor()
+        {
+            this.Enqueue(PendingEcho.ForPasswordKeyEcho());
+        }
+
+        internal void NotifyUserInput(string sentText)
+        {
+            if (string.IsNullOrEmpty(sentText))
+                return;
+
+            if (this.passwordEntryActive
+                && (sentText == "\r" || sentText == "\n" || sentText == "\r\n"))
+            {
+                this.passwordEntryActive = false;
+                this.ResetPendingEcho();
+            }
+        }
+
         internal bool TryCreatePrintableEcho(char keyChar, string screenText, bool cursorVisible, out string localEcho)
         {
             localEcho = null;
-            if (!cursorVisible || this.alternateScreenActive || IsUnsafePrompt(screenText))
+            if (!cursorVisible || this.alternateScreenActive || this.IsPasswordEntryActive(screenText))
                 return false;
 
             if (char.IsControl(keyChar) || char.IsSurrogate(keyChar))
@@ -38,7 +63,7 @@ namespace Terminals.Plugins.SshNet
             if ((sentText != "\b" && sentText != "\x7f")
                 || !cursorVisible
                 || this.alternateScreenActive
-                || IsUnsafePrompt(screenText))
+                || this.IsPasswordEntryActive(screenText))
             {
                 return false;
             }
@@ -75,6 +100,7 @@ namespace Terminals.Plugins.SshNet
                 return text;
 
             this.TrackTerminalMode(text);
+            this.UpdatePasswordEntryState(text);
 
             if (this.pendingEchoes.Count == 0)
                 return text;
@@ -109,6 +135,16 @@ namespace Terminals.Plugins.SshNet
         {
             this.pendingEchoes.Clear();
             this.alternateScreenActive = false;
+            this.passwordEntryActive = false;
+        }
+
+        private void UpdatePasswordEntryState(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return;
+
+            if (LooksLikePasswordPrompt(text))
+                this.passwordEntryActive = true;
         }
 
         private void Enqueue(PendingEcho pending)
@@ -173,15 +209,57 @@ namespace Terminals.Plugins.SshNet
             if (lastNewline >= 0 && lastNewline < tail.Length - 1)
                 tail = tail.Substring(lastNewline + 1);
 
-            tail = tail.Trim().ToLowerInvariant();
+            tail = StripSimpleAnsi(tail).Trim().ToLowerInvariant();
             if (tail.Length == 0)
                 return false;
 
-            return tail.IndexOf("password", StringComparison.Ordinal) >= 0
-                || tail.IndexOf("passphrase", StringComparison.Ordinal) >= 0
-                || tail.IndexOf("secret", StringComparison.Ordinal) >= 0
-                || tail.IndexOf("token", StringComparison.Ordinal) >= 0
-                || ContainsWord(tail, "pin");
+            return LooksLikePasswordPrompt(tail);
+        }
+
+        private static bool LooksLikePasswordPrompt(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return false;
+
+            string normalized = StripSimpleAnsi(text).ToLowerInvariant();
+            return normalized.IndexOf("password", StringComparison.Ordinal) >= 0
+                || normalized.IndexOf("passphrase", StringComparison.Ordinal) >= 0
+                || normalized.IndexOf("passwd", StringComparison.Ordinal) >= 0
+                || normalized.IndexOf("passwort", StringComparison.Ordinal) >= 0
+                || normalized.IndexOf("hasło", StringComparison.Ordinal) >= 0
+                || normalized.IndexOf("haslo", StringComparison.Ordinal) >= 0
+                || normalized.IndexOf("secret", StringComparison.Ordinal) >= 0
+                || normalized.IndexOf("token", StringComparison.Ordinal) >= 0
+                || normalized.IndexOf("credential", StringComparison.Ordinal) >= 0
+                || ContainsWord(normalized, "pin");
+        }
+
+        private static string StripSimpleAnsi(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return text;
+
+            var sb = new StringBuilder(text.Length);
+            for (int i = 0; i < text.Length;)
+            {
+                if (text[i] == '\x1b' && i + 1 < text.Length && text[i + 1] == '[')
+                {
+                    int j = i + 2;
+                    while (j < text.Length && !char.IsLetter(text[j]))
+                        j++;
+
+                    if (j < text.Length)
+                        j++;
+
+                    i = j;
+                    continue;
+                }
+
+                sb.Append(text[i]);
+                i++;
+            }
+
+            return sb.ToString();
         }
 
         private static bool ContainsWord(string text, string word)
@@ -206,6 +284,7 @@ namespace Terminals.Plugins.SshNet
         {
             private string primary;
             private string alternate;
+            private bool consumeNextPrintable;
 
             internal PendingEcho(string primary)
                 : this(primary, null)
@@ -218,9 +297,25 @@ namespace Terminals.Plugins.SshNet
                 this.alternate = alternate;
             }
 
+            private PendingEcho(bool consumeNextPrintable)
+            {
+                this.consumeNextPrintable = consumeNextPrintable;
+            }
+
+            internal static PendingEcho ForPasswordKeyEcho()
+            {
+                return new PendingEcho(consumeNextPrintable: true);
+            }
+
             internal bool IsConsumed
             {
-                get { return this.primary.Length == 0; }
+                get
+                {
+                    if (this.consumeNextPrintable)
+                        return false;
+
+                    return (this.primary ?? string.Empty).Length == 0;
+                }
             }
 
             internal bool IsPrintableCharacter
@@ -236,6 +331,21 @@ namespace Terminals.Plugins.SshNet
 
             internal bool TryConsume(ref string text)
             {
+                if (this.consumeNextPrintable)
+                {
+                    if (text.Length == 0)
+                        return true;
+
+                    char codePoint = text[0];
+                    if ((codePoint >= 0x20 && codePoint < 0x7f) || codePoint == '\x7f' || codePoint == '\b')
+                    {
+                        text = text.Substring(1);
+                        this.consumeNextPrintable = false;
+                    }
+
+                    return true;
+                }
+
                 if (this.alternate != null)
                 {
                     string alternateCandidate = this.alternate;

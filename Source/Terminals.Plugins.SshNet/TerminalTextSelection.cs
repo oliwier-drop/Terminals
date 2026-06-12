@@ -166,6 +166,26 @@ namespace Terminals.Plugins.SshNet
             return ExtractTextFromGrid(grid, anchor, end);
         }
 
+        internal static string ExtractTextFromDocumentRange(
+            VirtualTerminalController controller,
+            int columns,
+            TerminalCellPoint anchor,
+            TerminalCellPoint end)
+        {
+            if (controller == null || columns <= 0)
+                return string.Empty;
+
+            OrderSelectionPoints(anchor, end, out TerminalCellPoint start, out TerminalCellPoint stop);
+            int rows = stop.Row - start.Row + 1;
+            if (rows <= 0)
+                return string.Empty;
+
+            TerminalCellGrid grid = TerminalCellGridBuilder.Build(controller, start.Row, rows, columns);
+            TerminalCellPoint relativeAnchor = new TerminalCellPoint(anchor.Row - start.Row, anchor.Column);
+            TerminalCellPoint relativeEnd = new TerminalCellPoint(end.Row - start.Row, end.Column);
+            return ExtractTextFromGrid(grid, relativeAnchor, relativeEnd);
+        }
+
         internal static string ExtractTextFromGrid(
             TerminalCellGrid grid,
             TerminalCellPoint anchor,

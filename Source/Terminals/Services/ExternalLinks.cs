@@ -14,7 +14,7 @@ namespace Terminals.Services
     {
         internal static string TerminalsReleasesUrl
         {
-            get { return Program.Resources.GetString("TerminalsURL"); }
+            get { return ForkBranding.ReleasesPageUrl; }
         }
 
         internal static void ShowWinPCapPage()
@@ -28,8 +28,11 @@ namespace Terminals.Services
 
         internal static void AskIfShowReleasePage(Settings settings, ReleaseInfo releaseInfo)
         {
-            string message = string.Format("Version:{0}\r\nPublished:{1}\r\nDo you want to show the Terminals home page?",
-                                            releaseInfo.Version, releaseInfo.Published);
+            string message = string.Format(
+                "Version: {0}\r\nPublished: {1}\r\nDo you want to open the {2} release page?",
+                releaseInfo.Version,
+                releaseInfo.Published,
+                ForkBranding.Name);
             YesNoDisableResult answer = YesNoDisableForm.ShowDialog("New release is available", message);
             if (answer.Result == DialogResult.Yes)
                 ShowReleasePage();
@@ -45,7 +48,12 @@ namespace Terminals.Services
 
         internal static void OpenAuthorPage()
         {
-            OpenPath("http://weblogs.asp.net/rchartier/");
+            OpenPath(ForkBranding.MaintainerProfileUrl);
+        }
+
+        internal static void OpenIssuesPage()
+        {
+            OpenPath(ForkBranding.IssuesPageUrl);
         }
 
         internal static void OpenLogsFolder()

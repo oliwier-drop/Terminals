@@ -223,6 +223,76 @@ namespace Tests.SshNet
                 styled.Background.ToArgb());
         }
 
+        [TestMethod]
+        public void ExtractTextFromGrid_LargeRange_CopiesHundredsOfLines()
+        {
+            var grid = new TerminalCellGrid(8, 500);
+            for (int row = 0; row < grid.Rows; row++)
+                FillRow(grid, row, row.ToString("D4"));
+
+            string text = TerminalTextSelection.ExtractTextFromGrid(
+                grid,
+                new TerminalCellPoint(0, 0),
+                new TerminalCellPoint(499, 3));
+
+            string[] lines = text.Split('\n');
+            Assert.AreEqual(500, lines.Length);
+            Assert.AreEqual("0000", lines[0]);
+            Assert.AreEqual("0499", lines[499]);
+        }
+
+        [TestMethod]
+        public void ExtractTextFromGrid_MultiLine_TrimsTrailingSpacesButKeepsNewlines()
+        {
+            var grid = new TerminalCellGrid(6, 3);
+            FillRow(grid, 0, "ab    ");
+            FillRow(grid, 1, "cd    ");
+            FillRow(grid, 2, "ef    ");
+
+            string text = TerminalTextSelection.ExtractTextFromGrid(
+                grid,
+                new TerminalCellPoint(0, 0),
+                new TerminalCellPoint(2, 5));
+
+            Assert.AreEqual("ab\ncd\nef", text);
+        }
+
+        [TestMethod]
+        public void ExtractTextFromDocumentRange_CopiesRowsOutsideVisibleViewport()
+        {
+            var session = new SshVtSession();
+            session.Resize(8, 3);
+            for (int row = 0; row < 12; row++)
+                session.Push(row.ToString("D4") + "\r\n");
+
+            string text = TerminalTextSelection.ExtractTextFromDocumentRange(
+                session.Controller,
+                session.Columns,
+                new TerminalCellPoint(2, 0),
+                new TerminalCellPoint(8, 3));
+
+            string[] lines = text.Split('\n');
+            Assert.AreEqual(7, lines.Length);
+            Assert.AreEqual("0002", lines[0]);
+            Assert.AreEqual("0008", lines[6]);
+        }
+
+        [TestMethod]
+        public void ShouldFollowTailAfterScroll_ReturnsTrueOnlyAtTail()
+        {
+            Assert.IsFalse(SshTerminalControl.ShouldFollowTailAfterScroll(3, 10));
+            Assert.IsTrue(SshTerminalControl.ShouldFollowTailAfterScroll(10, 10));
+            Assert.IsTrue(SshTerminalControl.ShouldFollowTailAfterScroll(12, 10));
+        }
+
+        [TestMethod]
+        public void ClampViewTopRow_StaysWithinScrollbackRange()
+        {
+            Assert.AreEqual(0, SshTerminalControl.ClampViewTopRow(-3, 10));
+            Assert.AreEqual(6, SshTerminalControl.ClampViewTopRow(6, 10));
+            Assert.AreEqual(10, SshTerminalControl.ClampViewTopRow(15, 10));
+        }
+
         private static void FillRow(TerminalCellGrid grid, int row, string text)
         {
             for (int i = 0; i < text.Length && i < grid.Columns; i++)

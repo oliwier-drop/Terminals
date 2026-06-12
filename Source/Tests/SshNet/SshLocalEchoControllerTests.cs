@@ -192,5 +192,54 @@ namespace Tests.SshNet
             Assert.AreEqual(" prompt", controller.FilterServerOutput(" \b prompt"));
             Assert.IsFalse(controller.HasPendingEcho);
         }
+
+        [TestMethod]
+        public void TryCreatePrintableEcho_PolishPasswordPrompt_DisablesEcho()
+        {
+            var controller = new SshLocalEchoController();
+
+            string localEcho;
+            bool allowed = controller.TryCreatePrintableEcho('s', "Hasło: ", true, out localEcho);
+
+            Assert.IsFalse(allowed);
+            Assert.IsNull(localEcho);
+        }
+
+        [TestMethod]
+        public void FilterServerOutput_PasswordPrompt_EnablesServerEchoSuppression()
+        {
+            var controller = new SshLocalEchoController();
+            controller.FilterServerOutput("[sudo] password for dropadmin: ");
+
+            controller.RegisterPasswordKeySuppressor();
+            string filtered = controller.FilterServerOutput("s");
+
+            Assert.AreEqual(string.Empty, filtered);
+        }
+
+        [TestMethod]
+        public void FilterServerOutput_PasswordPrompt_StripsDelBackspaceEcho()
+        {
+            var controller = new SshLocalEchoController();
+            controller.FilterServerOutput("Password: ");
+            controller.RegisterPasswordKeySuppressor();
+
+            Assert.AreEqual(string.Empty, controller.FilterServerOutput("\x7f"));
+        }
+
+        [TestMethod]
+        public void NotifyUserInput_EnterAfterPasswordPrompt_ClearsPasswordMode()
+        {
+            var controller = new SshLocalEchoController();
+            controller.FilterServerOutput("Password: ");
+
+            string localEcho;
+            Assert.IsFalse(controller.TryCreatePrintableEcho('s', "$ ", true, out localEcho));
+
+            controller.NotifyUserInput("\r");
+
+            Assert.IsTrue(controller.TryCreatePrintableEcho('a', "$ ", true, out localEcho));
+            Assert.AreEqual("a", localEcho);
+        }
     }
 }

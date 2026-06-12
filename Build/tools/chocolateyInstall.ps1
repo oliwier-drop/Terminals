@@ -1,4 +1,4 @@
-﻿$url = 'https://github.com/Terminals-Origin/Terminals/releases/download/$Version/TerminalsSetup_$Version.msi';
+﻿$url = 'https://github.com/oliwier-drop/Terminals/releases/download/$Version/TerminalsSetup_$Version.msi';
 $checksum = '';
 
 $ErrorActionPreference = 'Stop';

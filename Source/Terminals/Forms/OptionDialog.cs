@@ -6,6 +6,7 @@ using System.Linq;
 using Terminals.Configuration;
 using Terminals.Connections;
 using Terminals.Data;
+using Terminals.Services;
 
 namespace Terminals.Forms
 {
@@ -19,6 +20,9 @@ namespace Terminals.Forms
             DpiFormHelper.Apply(this);
 
             InitializeComponent();
+
+            this.linkLabel1.Text = ForkBranding.IssuesPageUrl;
+            this.linkLabel1.LinkClicked += (sender, args) => ExternalLinks.OpenIssuesPage();
 
             this.panelMasterPassword.Security = persistence.Security;
             MovePanelsFromTabsIntoControls();

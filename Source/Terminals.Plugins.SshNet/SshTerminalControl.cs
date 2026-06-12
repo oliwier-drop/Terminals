@@ -20,6 +20,8 @@ namespace Terminals.Plugins.SshNet
         private const int CoalescedRenderThresholdChars = 8192;
         private const int MaxColumns = 260;
         private const int MaxRows = 100;
+        private const int SelectionAutoScrollIntervalMs = 50;
+        private const int SelectionAutoScrollRows = 1;
 
         private readonly Action<string> sendInput;
         private readonly SshVtSession session = new SshVtSession();
@@ -31,6 +33,7 @@ namespace Terminals.Plugins.SshNet
         private readonly Timer localResizeCoalesceTimer;
         private readonly Timer ptyResizeDebounceTimer;
         private readonly VScrollBar scrollBar;
+        private readonly Timer selectionAutoScrollTimer;
         private int cellWidth;
         private int cellHeight;
         private int cachedMetricsWidth = -1;
@@ -51,6 +54,8 @@ namespace Terminals.Plugins.SshNet
         private TerminalCellPoint selectionAnchor;
         private TerminalCellPoint selectionEnd;
         private Rectangle lastSelectionInvalidateRect = Rectangle.Empty;
+        private Point lastSelectionMouseLocation;
+        private bool updatingScrollBar;
 
         internal int Columns
         {
@@ -106,6 +111,9 @@ namespace Terminals.Plugins.SshNet
 
             this.ptyResizeDebounceTimer = new Timer { Interval = PtyResizeDebounceMs };
             this.ptyResizeDebounceTimer.Tick += this.OnPtyResizeDebounceTick;
+
+            this.selectionAutoScrollTimer = new Timer { Interval = SelectionAutoScrollIntervalMs };
+            this.selectionAutoScrollTimer.Tick += this.OnSelectionAutoScrollTimerTick;
 
             this.caretTimer = new Timer { Interval = 500 };
             this.caretTimer.Tick += this.OnCaretTimerTick;
@@ -241,6 +249,8 @@ namespace Terminals.Plugins.SshNet
                 this.localResizeCoalesceTimer.Dispose();
                 this.ptyResizeDebounceTimer.Stop();
                 this.ptyResizeDebounceTimer.Dispose();
+                this.selectionAutoScrollTimer.Stop();
+                this.selectionAutoScrollTimer.Dispose();
                 this.caretTimer.Stop();
                 this.caretTimer.Dispose();
                 this.renderPipeline.Dispose();
@@ -432,6 +442,7 @@ namespace Terminals.Plugins.SshNet
 
             if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Return)
             {
+                this.localEcho.NotifyUserInput("\r");
                 this.sendInput("\r");
                 e.SuppressKeyPress = true;
                 e.Handled = true;
@@ -484,14 +495,22 @@ namespace Terminals.Plugins.SshNet
         private void SendPrintableInput(string text, char keyChar)
         {
             this.sendInput(text);
+            this.localEcho.NotifyUserInput(text);
 
             if (this.session.IsAlternateScreenActive)
                 return;
 
+            string screenText = this.session.GetScreenText();
+            if (this.localEcho.IsPasswordEntryActive(screenText))
+            {
+                this.localEcho.RegisterPasswordKeySuppressor();
+                return;
+            }
+
             string localEchoText;
             if (this.localEcho.TryCreatePrintableEcho(
                 keyChar,
-                this.session.GetScreenText(),
+                screenText,
                 this.session.Controller.CursorState.ShowCursor,
                 out localEchoText))
             {
@@ -503,14 +522,22 @@ namespace Terminals.Plugins.SshNet
         private void SendBackspaceInput(string text)
         {
             this.sendInput(text);
+            this.localEcho.NotifyUserInput(text);
 
             if (this.session.IsAlternateScreenActive)
                 return;
 
+            string screenText = this.session.GetScreenText();
+            if (this.localEcho.IsPasswordEntryActive(screenText))
+            {
+                this.localEcho.RegisterPasswordKeySuppressor();
+                return;
+            }
+
             string localEchoText;
             if (this.localEcho.TryCreateBackspaceEcho(
                 text,
-                this.session.GetScreenText(),
+                screenText,
                 this.session.Controller.CursorState.ShowCursor,
                 out localEchoText))
             {
@@ -563,8 +590,9 @@ namespace Terminals.Plugins.SshNet
 
             this.isSelecting = true;
             this.hasSelection = true;
-            this.selectionAnchor = new TerminalCellPoint(row, col);
-            this.selectionEnd = new TerminalCellPoint(row, col);
+            this.selectionAnchor = this.ToDocumentPoint(row, col);
+            this.selectionEnd = this.selectionAnchor;
+            this.lastSelectionMouseLocation = e.Location;
             this.Capture = true;
             this.lastSelectionInvalidateRect = Rectangle.Empty;
             this.InvalidateSelectionRegion();
@@ -575,14 +603,9 @@ namespace Terminals.Plugins.SshNet
             if (!this.isSelecting || (e.Button & MouseButtons.Left) == 0)
                 return;
 
-            if (!this.TryHitTestCellForSelection(e.X, e.Y, out int row, out int col))
-                return;
-
-            if (row == this.selectionEnd.Row && col == this.selectionEnd.Column)
-                return;
-
-            this.selectionEnd = new TerminalCellPoint(row, col);
-            this.InvalidateSelectionRegion();
+            this.lastSelectionMouseLocation = e.Location;
+            this.UpdateSelectionEndFromMouse(e.Location);
+            this.UpdateSelectionAutoScroll(e.Location);
         }
 
         private void OnMouseUp(object sender, MouseEventArgs e)
@@ -593,8 +616,8 @@ namespace Terminals.Plugins.SshNet
                 {
                     this.isSelecting = false;
                     this.Capture = false;
-                    if (this.TryHitTestCellForSelection(e.X, e.Y, out int row, out int col))
-                        this.selectionEnd = new TerminalCellPoint(row, col);
+                    this.selectionAutoScrollTimer.Stop();
+                    this.UpdateSelectionEndFromMouse(e.Location);
 
                     this.CopySelectionToClipboard();
                     this.InvalidateSelectionRegion();
@@ -621,24 +644,19 @@ namespace Terminals.Plugins.SshNet
 
         private void OnScrollBarScroll(object sender, ScrollEventArgs e)
         {
-            this.followTail = false;
-            int rowDelta = e.NewValue - this.viewTopRow;
-            this.viewTopRow = e.NewValue;
-            this.ApplyViewportScroll(rowDelta);
+            if (this.updatingScrollBar)
+                return;
+
+            this.SetViewTopRow(e.NewValue, userInitiated: true);
         }
 
         private void OnMouseWheel(object sender, MouseEventArgs e)
         {
-            if (this.scrollBar.Maximum <= 0)
+            if (this.GetTailTopRow() <= 0)
                 return;
 
             int lineDelta = e.Delta > 0 ? -3 : 3;
-            this.followTail = false;
-            int newTop = Math.Max(0, Math.Min(this.scrollBar.Maximum, this.viewTopRow + lineDelta));
-            int rowDelta = newTop - this.viewTopRow;
-            this.viewTopRow = newTop;
-            this.scrollBar.Value = Math.Min(this.scrollBar.Maximum, this.viewTopRow);
-            this.ApplyViewportScroll(rowDelta);
+            this.SetViewTopRow(this.viewTopRow + lineDelta, userInitiated: true);
         }
 
         private void ScheduleRender()
@@ -704,7 +722,9 @@ namespace Terminals.Plugins.SshNet
                 this.pendingOutput.Length = 0;
             }
 
+            bool wasFollowingTail = this.followTail || this.IsAtTail();
             this.session.Push(chunk);
+            this.followTail = wasFollowingTail;
             this.RenderSessionChanges(chunk);
         }
 
@@ -715,8 +735,6 @@ namespace Terminals.Plugins.SshNet
 
             int viewTopBefore = this.viewTopRow;
             this.UpdateScrollRange();
-            if (this.followTail)
-                this.viewTopRow = this.scrollBar.Maximum;
 
             int scrollDeltaRows = this.viewTopRow - viewTopBefore;
             this.EnsureFrameCacheBitmap();
@@ -881,7 +899,7 @@ namespace Terminals.Plugins.SshNet
         {
             if (fullRepaint || dirtyRows == null || dirtyRows.Count == 0)
             {
-                this.Invalidate();
+                this.Invalidate(this.GetTerminalContentBounds());
                 return;
             }
 
@@ -966,7 +984,7 @@ namespace Terminals.Plugins.SshNet
                 }
             }
 
-            this.Invalidate();
+            this.Invalidate(this.GetTerminalContentBounds());
         }
 
         private bool TryHitTestCell(int x, int y, out int row, out int column)
@@ -1004,13 +1022,9 @@ namespace Terminals.Plugins.SshNet
 
             try
             {
-                var grid = TerminalCellGridBuilder.Build(
+                string text = TerminalTextSelection.ExtractTextFromDocumentRange(
                     this.session.Controller,
-                    this.viewTopRow,
-                    Math.Max(1, this.Rows),
-                    Math.Max(1, this.Columns));
-                string text = TerminalTextSelection.ExtractTextFromGrid(
-                    grid,
+                    Math.Max(1, this.Columns),
                     this.selectionAnchor,
                     this.selectionEnd);
 
@@ -1029,6 +1043,11 @@ namespace Terminals.Plugins.SshNet
             if (!this.hasSelection || graphics == null)
                 return;
 
+            TerminalCellPoint visibleAnchor;
+            TerminalCellPoint visibleEnd;
+            if (!this.TryGetVisibleSelection(out visibleAnchor, out visibleEnd))
+                return;
+
             var grid = TerminalCellGridBuilder.Build(
                 this.session.Controller,
                 this.viewTopRow,
@@ -1037,8 +1056,8 @@ namespace Terminals.Plugins.SshNet
             this.renderPipeline.PaintSelection(
                 graphics,
                 grid,
-                this.selectionAnchor,
-                this.selectionEnd);
+                visibleAnchor,
+                visibleEnd);
         }
 
         private void InvalidateSelectionRegion()
@@ -1050,12 +1069,7 @@ namespace Terminals.Plugins.SshNet
             if (this.hasSelection)
             {
                 this.EnsureCellMetrics();
-                newRect = TerminalTextSelection.GetSelectionPixelBounds(
-                    this.selectionAnchor,
-                    this.selectionEnd,
-                    Math.Max(1, this.Columns),
-                    this.cellWidth,
-                    this.cellHeight);
+                newRect = this.GetVisibleSelectionPixelBounds();
             }
 
             if (newRect.IsEmpty && !this.hasSelection)
@@ -1070,7 +1084,15 @@ namespace Terminals.Plugins.SshNet
             }
 
             if (newRect.IsEmpty)
+            {
+                if (!this.lastSelectionInvalidateRect.IsEmpty)
+                {
+                    this.Invalidate(this.lastSelectionInvalidateRect);
+                    this.lastSelectionInvalidateRect = Rectangle.Empty;
+                }
+
                 return;
+            }
 
             Rectangle invalidateRect = this.lastSelectionInvalidateRect.IsEmpty
                 ? newRect
@@ -1086,6 +1108,7 @@ namespace Terminals.Plugins.SshNet
 
             this.hasSelection = false;
             this.isSelecting = false;
+            this.selectionAutoScrollTimer.Stop();
             this.InvalidateSelectionRegion();
         }
 
@@ -1122,6 +1145,119 @@ namespace Terminals.Plugins.SshNet
             return true;
         }
 
+        private void UpdateSelectionEndFromMouse(Point location)
+        {
+            if (!this.TryHitTestCellForSelection(location.X, location.Y, out int row, out int col))
+                return;
+
+            TerminalCellPoint end = this.ToDocumentPoint(row, col);
+            if (end.Row == this.selectionEnd.Row && end.Column == this.selectionEnd.Column)
+                return;
+
+            this.selectionEnd = end;
+            this.InvalidateSelectionRegion();
+        }
+
+        private void UpdateSelectionAutoScroll(Point location)
+        {
+            if (!this.isSelecting)
+            {
+                this.selectionAutoScrollTimer.Stop();
+                return;
+            }
+
+            int clientHeight = this.DisplayRectangle.Height;
+            if ((location.Y < 0 && this.viewTopRow > 0)
+                || (location.Y >= clientHeight && this.viewTopRow < this.GetTailTopRow()))
+            {
+                if (!this.selectionAutoScrollTimer.Enabled)
+                    this.selectionAutoScrollTimer.Start();
+                return;
+            }
+
+            this.selectionAutoScrollTimer.Stop();
+        }
+
+        private void OnSelectionAutoScrollTimerTick(object sender, EventArgs e)
+        {
+            if (!this.isSelecting)
+            {
+                this.selectionAutoScrollTimer.Stop();
+                return;
+            }
+
+            int clientHeight = this.DisplayRectangle.Height;
+            int delta = 0;
+            if (this.lastSelectionMouseLocation.Y < 0)
+                delta = -SelectionAutoScrollRows;
+            else if (this.lastSelectionMouseLocation.Y >= clientHeight)
+                delta = SelectionAutoScrollRows;
+
+            if (delta == 0)
+            {
+                this.selectionAutoScrollTimer.Stop();
+                return;
+            }
+
+            int previousTop = this.viewTopRow;
+            this.SetViewTopRow(this.viewTopRow + delta, userInitiated: true);
+            if (previousTop == this.viewTopRow)
+            {
+                this.selectionAutoScrollTimer.Stop();
+                return;
+            }
+
+            this.UpdateSelectionEndFromMouse(this.lastSelectionMouseLocation);
+        }
+
+        private TerminalCellPoint ToDocumentPoint(int visibleRow, int column)
+        {
+            return new TerminalCellPoint(this.viewTopRow + visibleRow, column);
+        }
+
+        private bool TryGetVisibleSelection(out TerminalCellPoint visibleAnchor, out TerminalCellPoint visibleEnd)
+        {
+            visibleAnchor = new TerminalCellPoint();
+            visibleEnd = new TerminalCellPoint();
+            if (!this.hasSelection)
+                return false;
+
+            TerminalTextSelection.OrderSelectionPoints(
+                this.selectionAnchor,
+                this.selectionEnd,
+                out TerminalCellPoint start,
+                out TerminalCellPoint stop);
+
+            int visibleTop = this.viewTopRow;
+            int visibleBottom = this.viewTopRow + Math.Max(1, this.Rows) - 1;
+            int clippedStartRow = Math.Max(start.Row, visibleTop);
+            int clippedStopRow = Math.Min(stop.Row, visibleBottom);
+            if (clippedStopRow < clippedStartRow)
+                return false;
+
+            int columns = Math.Max(1, this.Columns);
+            int startColumn = clippedStartRow == start.Row ? start.Column : 0;
+            int stopColumn = clippedStopRow == stop.Row ? stop.Column : columns - 1;
+            visibleAnchor = new TerminalCellPoint(clippedStartRow - visibleTop, startColumn);
+            visibleEnd = new TerminalCellPoint(clippedStopRow - visibleTop, stopColumn);
+            return true;
+        }
+
+        private Rectangle GetVisibleSelectionPixelBounds()
+        {
+            TerminalCellPoint visibleAnchor;
+            TerminalCellPoint visibleEnd;
+            if (!this.TryGetVisibleSelection(out visibleAnchor, out visibleEnd))
+                return Rectangle.Empty;
+
+            return TerminalTextSelection.GetSelectionPixelBounds(
+                visibleAnchor,
+                visibleEnd,
+                Math.Max(1, this.Columns),
+                this.cellWidth,
+                this.cellHeight);
+        }
+
         private bool TryPasteFromClipboard()
         {
             try
@@ -1134,8 +1270,26 @@ namespace Terminals.Plugins.SshNet
                     return false;
 
                 text = text.Replace("\r\n", "\n").Replace('\r', '\n');
-                this.localEcho.ResetPendingEcho();
+                string screenText = this.session.GetScreenText();
+                bool passwordEntry = this.localEcho.IsPasswordEntryActive(screenText);
+                if (!passwordEntry)
+                    this.localEcho.ResetPendingEcho();
+
                 this.sendInput(text);
+                if (text.IndexOf('\n') >= 0)
+                    this.localEcho.NotifyUserInput("\r");
+
+                if (passwordEntry)
+                {
+                    foreach (char character in text)
+                    {
+                        if (char.IsControl(character) && character != '\b' && character != '\x7f')
+                            continue;
+
+                        this.localEcho.RegisterPasswordKeySuppressor();
+                    }
+                }
+
                 return true;
             }
             catch
@@ -1156,17 +1310,104 @@ namespace Terminals.Plugins.SshNet
 
         private void UpdateScrollRange()
         {
-            int maxTop = Math.Max(0, this.session.Controller.ViewPort.TopRow);
-            this.scrollBar.Maximum = maxTop;
-            this.scrollBar.LargeChange = Math.Max(1, this.Rows);
-            this.scrollBar.Visible = maxTop > 0;
+            int tailTop = this.GetTailTopRow();
+            int largeChange = Math.Max(1, this.Rows);
+            int maximum = Math.Max(largeChange - 1, tailTop + largeChange - 1);
+            this.updatingScrollBar = true;
+            try
+            {
+                if (this.scrollBar.Value > maximum)
+                    this.scrollBar.Value = maximum;
+            }
+            finally
+            {
+                this.updatingScrollBar = false;
+            }
+
+            this.scrollBar.SmallChange = 1;
+            this.scrollBar.LargeChange = largeChange;
+            this.scrollBar.Maximum = maximum;
+            this.scrollBar.Visible = tailTop > 0;
 
             if (this.followTail)
             {
-                this.viewTopRow = maxTop;
-                if (this.scrollBar.Maximum >= this.scrollBar.Minimum)
-                    this.scrollBar.Value = Math.Min(this.scrollBar.Maximum, this.viewTopRow);
+                this.viewTopRow = tailTop;
             }
+            else
+            {
+                this.viewTopRow = ClampViewTopRow(this.viewTopRow, tailTop);
+            }
+
+            this.UpdateScrollBarValue();
+        }
+
+        private int GetTailTopRow()
+        {
+            return Math.Max(0, this.session.Controller.ViewPort.TopRow);
+        }
+
+        internal static int ClampViewTopRow(int requestedTopRow, int tailTopRow)
+        {
+            if (tailTopRow < 0)
+                tailTopRow = 0;
+            if (requestedTopRow < 0)
+                return 0;
+            if (requestedTopRow > tailTopRow)
+                return tailTopRow;
+            return requestedTopRow;
+        }
+
+        internal static bool ShouldFollowTailAfterScroll(int viewTopRow, int tailTopRow)
+        {
+            return ClampViewTopRow(viewTopRow, tailTopRow) >= Math.Max(0, tailTopRow);
+        }
+
+        private bool IsAtTail()
+        {
+            return ShouldFollowTailAfterScroll(this.viewTopRow, this.GetTailTopRow());
+        }
+
+        private void SetViewTopRow(int requestedTopRow, bool userInitiated)
+        {
+            int tailTop = this.GetTailTopRow();
+            int newTop = ClampViewTopRow(requestedTopRow, tailTop);
+            int rowDelta = newTop - this.viewTopRow;
+            if (userInitiated)
+                this.followTail = ShouldFollowTailAfterScroll(newTop, tailTop);
+
+            if (rowDelta == 0)
+            {
+                this.UpdateScrollBarValue();
+                return;
+            }
+
+            this.viewTopRow = newTop;
+            this.UpdateScrollBarValue();
+            this.ApplyViewportScroll(rowDelta);
+        }
+
+        private void UpdateScrollBarValue()
+        {
+            int value = ClampViewTopRow(this.viewTopRow, this.GetTailTopRow());
+            value = Math.Min(this.scrollBar.Maximum, Math.Max(this.scrollBar.Minimum, value));
+            if (this.scrollBar.Value == value)
+                return;
+
+            this.updatingScrollBar = true;
+            try
+            {
+                this.scrollBar.Value = value;
+            }
+            finally
+            {
+                this.updatingScrollBar = false;
+            }
+        }
+
+        private Rectangle GetTerminalContentBounds()
+        {
+            int width = this.frameCacheWidth > 0 ? this.frameCacheWidth : this.GetPaintableWidth();
+            return new Rectangle(0, 0, Math.Max(0, width), Math.Max(1, this.DisplayRectangle.Height));
         }
 
         private void PaintCaretOverlay(Graphics graphics)

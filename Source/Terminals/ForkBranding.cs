@@ -6,5 +6,15 @@ namespace Terminals
         public const string Name = "Terminals (SSH.NET fork)";
         public const string Version = "1.0.3";
         public const string DisplayName = Name + " " + Version;
+
+        public const string MaintainerName = "Oliwier Drop";
+        public const string MaintainerProfileUrl = "https://github.com/oliwier-drop";
+
+        public const string RepositoryUrl = "https://github.com/oliwier-drop/Terminals";
+        public const string ReleasesPageUrl = RepositoryUrl + "/releases";
+        public const string ReleasesApiUrl = "https://api.github.com/repos/oliwier-drop/Terminals/releases";
+        public const string IssuesPageUrl = RepositoryUrl + "/issues";
+        public const string LicensePageUrl = RepositoryUrl + "/blob/master/LICENSE.md";
+        public const string IconRawUrl = "https://raw.githubusercontent.com/oliwier-drop/Terminals/master/Source/Terminals/Resources/terminalsicon.png";
     }
 }

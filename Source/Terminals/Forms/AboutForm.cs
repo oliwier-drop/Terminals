@@ -36,6 +36,8 @@ namespace Terminals
             this.Text = "About " + ForkBranding.DisplayName;
             this.titleLabel.Text = ForkBranding.DisplayName + "\r\n" + Program.Info.Description;
             this.lblVersion.Text = Program.Info.GetAboutText(persistenceName);
+            this.lblTerminals.Text = ForkBranding.ReleasesPageUrl;
+            this.linkLabel4.Text = ForkBranding.MaintainerName;
             this.textBox1.Text = this.FormatDetails();
         }
 
