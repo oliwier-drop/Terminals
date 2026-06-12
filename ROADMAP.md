@@ -6,7 +6,7 @@ Single place for **planned and completed work** on this Terminals fork. Upstream
 
 **Licensing:** fork-authored code is **GPL-3.0** — see [FORK-AUTHORED.md](FORK-AUTHORED.md) and `SPDX-License-Identifier` headers in source files.
 
-Release notes: [v1.0.0](Docs/RELEASE-v1.0.0-notes.md) · [v1.0.1](Docs/RELEASE-v1.0.1-notes.md) · [v1.0.2](Docs/RELEASE-v1.0.2-notes.md) · [v1.0.3](Docs/RELEASE-v1.0.3-notes.md)
+Release notes: [v1.0.0](Docs/RELEASE-v1.0.0-notes.md) · [v1.0.1](Docs/RELEASE-v1.0.1-notes.md) · [v1.0.2](Docs/RELEASE-v1.0.2-notes.md) · [v1.0.3](Docs/RELEASE-v1.0.3-notes.md) · [v1.0.4](Docs/RELEASE-v1.0.4-notes.md)
 
 ---
 
@@ -48,6 +48,14 @@ Release notes: [v1.0.0](Docs/RELEASE-v1.0.0-notes.md) · [v1.0.1](Docs/RELEASE-v
 - [x] **Local resize UI** — split immediate repaint from debounced PTY sync; alternate-screen-safe resize for nano/vim; pixel PTY dimensions
 - [x] **Tab strip shape** — first tab slanted left edge only; subsequent tabs straight vertical edges with right-side close button
 - [x] Unit tests: local echo, SSH.NET helper, VT session, resize, and SSH profile coverage
+
+### Done — `v1.0.4`
+
+- [x] **Scrollback viewport** — follow-tail autoscroll, fixed scrollbar range, smoother wheel/thumb scrolling
+- [x] **Large selection & copy** — absolute scrollback coordinates; copy across full scrollback; auto-scroll while dragging selection
+- [x] **Password masking** — hide typed characters at password prompts (local + server echo suppression; Polish prompts)
+- [x] **Fork update links** — release checker and UI links point to `oliwier-drop/Terminals`
+- [x] Unit tests: scroll clamp/follow-tail, document-range copy, password echo suppression
 
 ### Planned
 

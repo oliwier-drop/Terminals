@@ -4,7 +4,7 @@ namespace Terminals
     internal static class ForkBranding
     {
         public const string Name = "Terminals (SSH.NET fork)";
-        public const string Version = "1.0.3";
+        public const string Version = "1.0.4";
         public const string DisplayName = Name + " " + Version;
 
         public const string MaintainerName = "Oliwier Drop";
