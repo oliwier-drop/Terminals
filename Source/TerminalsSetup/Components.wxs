@@ -171,6 +171,24 @@
       <Component Id="SshNetSystemThreadingTasksExtensions" Guid="B5D9F2E3-4A6B-5D0F-9A8C-2C3D4E5F6A7B">
         <File Source="$(var.Terminals.Plugins.SshNet.TargetDir)System.Threading.Tasks.Extensions.dll" KeyPath="yes" Checksum="yes"/>
       </Component>
+      <Component Id="SshNetSkiaSharp" Guid="C6E0A3B4-5D7E-6A1C-0B9D-3D4E5F6A7B8C">
+        <File Source="$(var.Terminals.Plugins.SshNet.TargetDir)SkiaSharp.dll" KeyPath="yes" Checksum="yes"/>
+      </Component>
+    </ComponentGroup>
+    <ComponentGroup Id="SshNetSkiaNativeX86" Directory="SSHNETRUNTIMESWINX86NATIVE">
+      <Component Id="SshNetLibSkiaSharpX86" Guid="D7F1B4C5-6E8F-7B2D-1C0E-4E5F6A7B8C9D">
+        <File Id="SshNetLibSkiaSharpX86Dll" Name="libSkiaSharp.dll" Source="$(var.Terminals.Plugins.SshNet.TargetDir)runtimes\win-x86\native\libSkiaSharp.dll" KeyPath="yes" Checksum="yes"/>
+      </Component>
+    </ComponentGroup>
+    <ComponentGroup Id="SshNetSkiaNativeX64" Directory="SSHNETRUNTIMESWINX64NATIVE">
+      <Component Id="SshNetLibSkiaSharpX64" Guid="E8A2C5D6-7F90-8C3E-2D1F-5F6A7B8C9D0E">
+        <File Id="SshNetLibSkiaSharpX64Dll" Name="libSkiaSharp.dll" Source="$(var.Terminals.Plugins.SshNet.TargetDir)runtimes\win-x64\native\libSkiaSharp.dll" KeyPath="yes" Checksum="yes"/>
+      </Component>
+    </ComponentGroup>
+    <ComponentGroup Id="SshNetSkiaNativeArm64" Directory="SSHNETRUNTIMESWINARM64NATIVE">
+      <Component Id="SshNetLibSkiaSharpArm64" Guid="F9B3D6E7-8A01-9D4F-3E2A-6A7B8C9D0E1F">
+        <File Id="SshNetLibSkiaSharpArm64Dll" Name="libSkiaSharp.dll" Source="$(var.Terminals.Plugins.SshNet.TargetDir)runtimes\win-arm64\native\libSkiaSharp.dll" KeyPath="yes" Checksum="yes"/>
+      </Component>
     </ComponentGroup>
     <ComponentGroup Id="PuttyComponents">
       <Component Id="puttyexe" Guid="3944DCB6-AF12-47DC-B929-90BAFAF87518" Directory="PUTTYRESOURCESFOLDER">
