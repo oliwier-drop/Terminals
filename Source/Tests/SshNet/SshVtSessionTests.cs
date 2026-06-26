@@ -89,6 +89,47 @@ namespace Tests.SshNet
         }
 
         [TestMethod]
+        public void Push_AlternateScreenReentry_ClearsStaleAlternateContent()
+        {
+            var session = new SshVtSession();
+            session.Resize(80, 24);
+            session.Push("\x1B[?1049h\x1B[2Jvim buffer");
+            session.Push("\x1B[?1049l");
+            session.Push("\x1B[?1049hnano");
+
+            TerminalCellGrid grid = BuildGrid(session);
+            Assert.AreEqual("nano", RowText(grid, 0, 4));
+            Assert.AreNotEqual("vim ", RowText(grid, 0, 5));
+        }
+
+        [TestMethod]
+        public void Push_AlternateScreen1047Reentry_ClearsStaleAlternateContent()
+        {
+            var session = new SshVtSession();
+            session.Resize(80, 24);
+            session.Push("\x1B[?1047h\x1B[2Jvim buffer");
+            session.Push("\x1B[?1047l");
+            session.Push("\x1B[?1047hnano");
+
+            TerminalCellGrid grid = BuildGrid(session);
+            Assert.AreEqual("nano", RowText(grid, 0, 4));
+            Assert.AreNotEqual("vim ", RowText(grid, 0, 5));
+        }
+
+        [TestMethod]
+        public void Push_ManyLines_AdvancesViewportTail()
+        {
+            var session = new SshVtSession();
+            session.Resize(20, 5);
+            for (int i = 0; i < 20; i++)
+                session.Push("row" + i + "\r\n");
+
+            Assert.IsTrue(session.Controller.ViewPort.TopRow > 0);
+            string screen = session.GetScreenTextForTest();
+            Assert.IsTrue(screen.Contains("row19"));
+        }
+
+        [TestMethod]
         public void Resize_UpdatesVisibleDimensions()
         {
             var session = new SshVtSession();

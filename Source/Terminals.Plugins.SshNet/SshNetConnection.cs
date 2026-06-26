@@ -2,6 +2,7 @@
 // Copyright (c) oliwier-drop and contributors - fork-authored code.
 // See LICENSE.md and FORK-AUTHORED.md at the repository root.
 using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -618,7 +619,7 @@ namespace Terminals.Plugins.SshNet
 
         private void ReadLoop(int session, CancellationToken cancellationToken, bool hadInitialOutput)
         {
-            var buffer = new byte[4096];
+            var buffer = new byte[16384];
             bool receivedOutput = hadInitialOutput;
             try
             {
@@ -749,7 +750,8 @@ namespace Terminals.Plugins.SshNet
             if (this.IsDisposed)
                 return;
 
-            string chunk;
+            const int maxChunkChars = 16384;
+            var chunks = new List<string>();
             lock (this.uiOutputLock)
             {
                 if (this.uiOutputBatch.Length == 0)
@@ -758,12 +760,22 @@ namespace Terminals.Plugins.SshNet
                     return;
                 }
 
-                chunk = this.uiOutputBatch.ToString();
-                this.uiOutputBatch.Length = 0;
+                while (this.uiOutputBatch.Length > maxChunkChars)
+                {
+                    chunks.Add(this.uiOutputBatch.ToString(0, maxChunkChars));
+                    this.uiOutputBatch.Remove(0, maxChunkChars);
+                }
+
+                if (this.uiOutputBatch.Length > 0)
+                {
+                    chunks.Add(this.uiOutputBatch.ToString());
+                    this.uiOutputBatch.Length = 0;
+                }
             }
 
             Interlocked.Exchange(ref this.uiOutputFlushScheduled, 0);
-            this.terminalControl.AppendServerAnsi(chunk);
+            foreach (string chunk in chunks)
+                this.terminalControl.AppendServerAnsi(chunk);
 
             lock (this.uiOutputLock)
             {

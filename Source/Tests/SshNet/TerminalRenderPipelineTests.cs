@@ -31,13 +31,82 @@ namespace Tests.SshNet
         }
 
         [TestMethod]
+        public void ChunkRequiresFullRepaint_AlternateScreen1047_ReturnsTrue()
+        {
+            Assert.IsTrue(TerminalRenderPipeline.ChunkRequiresFullRepaint("\x1B[?1047h"));
+        }
+
+        [TestMethod]
+        public void ChunkRequiresFullRepaint_AlternateScreen47_ReturnsTrue()
+        {
+            Assert.IsTrue(TerminalRenderPipeline.ChunkRequiresFullRepaint("\x1B[?47h"));
+        }
+
+        [TestMethod]
+        public void ChunkRequiresFullRepaint_EraseScrollback_ReturnsTrue()
+        {
+            Assert.IsTrue(TerminalRenderPipeline.ChunkRequiresFullRepaint("\x1B[3J"));
+        }
+
+        [TestMethod]
+        public void UpdateFrame_LimitedBudget_PaintsAllDirtyRowsWithoutDeferral()
+        {
+            using (var pipeline = new TerminalRenderPipeline())
+            using (var bitmap = new Bitmap(200, 128))
+            {
+                pipeline.UpdateDisplayScale(10f);
+                var session = CreateSession("a\r\nb\r\nc\r\nd", 10, 4);
+                pipeline.UpdateFrame(bitmap, session.Controller, 0, bitmap.Width, bitmap.Height, new TerminalRowDiffOptions());
+
+                session.Push("\x1B[1;1H1\x1B[2;1H2\x1B[3;1H3\x1B[4;1H4");
+                var deferred = new List<int>();
+                IList<int> painted = pipeline.UpdateFrame(
+                    bitmap,
+                    session.Controller,
+                    0,
+                    bitmap.Width,
+                    bitmap.Height,
+                    new TerminalRowDiffOptions(),
+                    maxRowsToPaint: 1,
+                    deferredRows: deferred);
+
+                Assert.AreEqual(0, deferred.Count);
+                Assert.AreEqual(4, painted.Count);
+            }
+        }
+
+        [TestMethod]
+        public void RebuildFullFrame_AfterBulkLineOutput_PaintsEveryVisibleRow()
+        {
+            using (var pipeline = new TerminalRenderPipeline())
+            {
+                pipeline.UpdateDisplayScale(10f);
+                int visibleRows = 5;
+                int rowHeight = pipeline.CellHeight;
+                using (var bitmap = new Bitmap(400, visibleRows * rowHeight))
+                {
+                    var session = new SshVtSession();
+                    session.Resize(24, visibleRows);
+                    for (int i = 0; i < 19; i++)
+                        session.Push("line-" + i + "\r\n");
+                    session.Push("line-19");
+
+                    int viewTop = session.Controller.ViewPort.TopRow;
+                    pipeline.RebuildFullFrame(bitmap, session.Controller, viewTop, bitmap.Width);
+
+                    for (int row = 0; row < visibleRows; row++)
+                        Assert.IsTrue(RowHasVisibleInk(bitmap, pipeline, row), "Row " + row + " should contain painted text.");
+                }
+            }
+        }
+
+        [TestMethod]
         public void PaintSelection_StreamRange_PaintsExpectedCellBackgrounds()
         {
             using (var pipeline = new TerminalRenderPipeline())
             using (var bitmap = new Bitmap(200, 64))
-            using (var graphics = Graphics.FromImage(bitmap))
             {
-                pipeline.UpdateDpiScale(1f);
+                pipeline.UpdateDisplayScale(10f);
                 var grid = new TerminalCellGrid(10, 3);
                 for (int col = 0; col < 10; col++)
                 {
@@ -46,12 +115,12 @@ namespace Tests.SshNet
                     grid[2, col] = MakeCell((char)('A' + col), Color.Yellow, Color.Black);
                 }
 
-                graphics.Clear(Color.Black);
                 pipeline.PaintSelection(
-                    graphics,
+                    bitmap,
                     grid,
                     new TerminalCellPoint(0, 2),
-                    new TerminalCellPoint(2, 5));
+                    new TerminalCellPoint(2, 5),
+                    Point.Empty);
 
                 AssertCellBackgroundNear(bitmap, pipeline, 0, 1, Color.Black);
                 AssertCellBackgroundNear(bitmap, pipeline, 0, 2, Color.Cyan);
@@ -69,20 +138,18 @@ namespace Tests.SshNet
         {
             using (var pipeline = new TerminalRenderPipeline())
             using (var bitmap = new Bitmap(32, 24))
-            using (var graphics = Graphics.FromImage(bitmap))
             {
-                pipeline.UpdateDpiScale(1f);
+                pipeline.UpdateDisplayScale(10f);
                 var grid = new TerminalCellGrid(1, 1);
                 grid[0, 0] = MakeCell('X', Color.Yellow, Color.Black);
 
-                graphics.Clear(Color.Black);
-                pipeline.PaintSelection(graphics, grid, new TerminalCellPoint(0, 0), new TerminalCellPoint(0, 0));
+                pipeline.PaintSelection(bitmap, grid, new TerminalCellPoint(0, 0), new TerminalCellPoint(0, 0), Point.Empty);
 
                 int yellowPixels = CountPixelsNearColor(
                     bitmap,
                     new Rectangle(0, 0, pipeline.CellWidth, pipeline.CellHeight),
                     Color.Yellow,
-                    tolerance: 32);
+                    tolerance: 48);
                 Assert.IsTrue(yellowPixels > (pipeline.CellWidth * pipeline.CellHeight) / 3);
             }
         }
@@ -92,13 +159,12 @@ namespace Tests.SshNet
         {
             using (var pipeline = new TerminalRenderPipeline())
             using (var bitmap = new Bitmap(200, 96))
-            using (var graphics = Graphics.FromImage(bitmap))
             {
-                pipeline.UpdateDpiScale(1f);
+                pipeline.UpdateDisplayScale(10f);
                 var session = CreateSession("abc\r\ndef\r\nghi", 10, 3);
 
                 IList<int> firstDirty = pipeline.UpdateFrame(
-                    graphics,
+                    bitmap,
                     session.Controller,
                     0,
                     bitmap.Width,
@@ -107,7 +173,7 @@ namespace Tests.SshNet
                 CollectionAssert.AreEqual(new[] { 0, 1, 2 }, ToArray(firstDirty));
 
                 IList<int> secondDirty = pipeline.UpdateFrame(
-                    graphics,
+                    bitmap,
                     session.Controller,
                     0,
                     bitmap.Width,
@@ -122,15 +188,14 @@ namespace Tests.SshNet
         {
             using (var pipeline = new TerminalRenderPipeline())
             using (var bitmap = new Bitmap(200, 96))
-            using (var graphics = Graphics.FromImage(bitmap))
             {
-                pipeline.UpdateDpiScale(1f);
+                pipeline.UpdateDisplayScale(10f);
                 var session = CreateSession("abc\r\ndef\r\nghi", 10, 3);
-                pipeline.UpdateFrame(graphics, session.Controller, 0, bitmap.Width, bitmap.Height, new TerminalRowDiffOptions());
+                pipeline.UpdateFrame(bitmap, session.Controller, 0, bitmap.Width, bitmap.Height, new TerminalRowDiffOptions());
 
                 session.Push("\x1B[2;1HZ");
                 IList<int> dirty = pipeline.UpdateFrame(
-                    graphics,
+                    bitmap,
                     session.Controller,
                     0,
                     bitmap.Width,
@@ -146,14 +211,13 @@ namespace Tests.SshNet
         {
             using (var pipeline = new TerminalRenderPipeline())
             using (var bitmap = new Bitmap(200, 96))
-            using (var graphics = Graphics.FromImage(bitmap))
             {
-                pipeline.UpdateDpiScale(1f);
+                pipeline.UpdateDisplayScale(10f);
                 var session = CreateSession("abc\r\ndef\r\nghi", 10, 3);
 
-                pipeline.RebuildFullFrame(graphics, session.Controller, 0, bitmap.Width);
+                pipeline.RebuildFullFrame(bitmap, session.Controller, 0, bitmap.Width);
                 IList<int> dirty = pipeline.UpdateFrame(
-                    graphics,
+                    bitmap,
                     session.Controller,
                     0,
                     bitmap.Width,
@@ -169,13 +233,12 @@ namespace Tests.SshNet
         {
             using (var pipeline = new TerminalRenderPipeline())
             using (var bitmap = new Bitmap(200, 96))
-            using (var graphics = Graphics.FromImage(bitmap))
             {
-                pipeline.UpdateDpiScale(1f);
+                pipeline.UpdateDisplayScale(10f);
                 var session = CreateSession("one\r\ntwo\r\nthree", 10, 3);
-                pipeline.UpdateFrame(graphics, session.Controller, 0, bitmap.Width, bitmap.Height, new TerminalRowDiffOptions());
+                pipeline.UpdateFrame(bitmap, session.Controller, 0, bitmap.Width, bitmap.Height, new TerminalRowDiffOptions());
 
-                Assert.IsTrue(pipeline.TryScrollFrame(graphics, bitmap, session.Controller, 0, 1, bitmap.Width));
+                Assert.IsTrue(pipeline.TryScrollFrame(bitmap, session.Controller, 0, 1, bitmap.Width));
             }
         }
 
@@ -184,13 +247,12 @@ namespace Tests.SshNet
         {
             using (var pipeline = new TerminalRenderPipeline())
             using (var bitmap = new Bitmap(200, 96))
-            using (var graphics = Graphics.FromImage(bitmap))
             {
-                pipeline.UpdateDpiScale(1f);
+                pipeline.UpdateDisplayScale(10f);
                 var session = CreateSession("one\r\ntwo\r\nthree", 10, 3);
-                pipeline.UpdateFrame(graphics, session.Controller, 0, bitmap.Width, bitmap.Height, new TerminalRowDiffOptions());
+                pipeline.UpdateFrame(bitmap, session.Controller, 0, bitmap.Width, bitmap.Height, new TerminalRowDiffOptions());
 
-                Assert.IsFalse(pipeline.TryScrollFrame(graphics, bitmap, session.Controller, 0, 3, bitmap.Width));
+                Assert.IsFalse(pipeline.TryScrollFrame(bitmap, session.Controller, 0, 3, bitmap.Width));
             }
         }
 
@@ -199,12 +261,11 @@ namespace Tests.SshNet
         {
             using (var pipeline = new TerminalRenderPipeline())
             using (var bitmap = new Bitmap(200, 96))
-            using (var graphics = Graphics.FromImage(bitmap))
             {
-                pipeline.UpdateDpiScale(1f);
+                pipeline.UpdateDisplayScale(10f);
                 var session = CreateSession("one\r\ntwo\r\nthree", 10, 3);
 
-                Assert.IsFalse(pipeline.TryScrollFrame(graphics, bitmap, session.Controller, 0, 1, bitmap.Width));
+                Assert.IsFalse(pipeline.TryScrollFrame(bitmap, session.Controller, 0, 1, bitmap.Width));
             }
         }
 
@@ -213,12 +274,11 @@ namespace Tests.SshNet
         {
             using (var pipeline = new TerminalRenderPipeline())
             using (var bitmap = new Bitmap(200, 96))
-            using (var graphics = Graphics.FromImage(bitmap))
             {
-                pipeline.UpdateDpiScale(1f);
+                pipeline.UpdateDisplayScale(10f);
                 var session = CreateSession("one\r\ntwo\r\nthree", 10, 3);
 
-                Assert.IsTrue(pipeline.TryScrollFrame(graphics, bitmap, session.Controller, 0, 0, bitmap.Width));
+                Assert.IsTrue(pipeline.TryScrollFrame(bitmap, session.Controller, 0, 0, bitmap.Width));
             }
         }
 
@@ -257,7 +317,7 @@ namespace Tests.SshNet
             Color sample = bitmap.GetPixel(
                 (column * pipeline.CellWidth) + 1,
                 (row * pipeline.CellHeight) + 1);
-            AssertColorNear(expected, sample, 32);
+            AssertColorNear(expected, sample, 48);
         }
 
         private static int CountPixelsNearColor(Bitmap bitmap, Rectangle area, Color expected, int tolerance)
@@ -291,6 +351,18 @@ namespace Tests.SshNet
                 && System.Math.Abs(expected.G - actual.G) <= tolerance
                 && System.Math.Abs(expected.B - actual.B) <= tolerance;
         }
+
+        private static bool RowHasVisibleInk(Bitmap bitmap, TerminalRenderPipeline pipeline, int row)
+        {
+            int y = (row * pipeline.CellHeight) + (pipeline.CellHeight / 2);
+            for (int x = 0; x < bitmap.Width; x += pipeline.CellWidth)
+            {
+                Color sample = bitmap.GetPixel(x, y);
+                if (sample.R > 24 || sample.G > 24 || sample.B > 24)
+                    return true;
+            }
+
+            return false;
+        }
     }
 }
-

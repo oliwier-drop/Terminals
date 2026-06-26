@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Imaging;
 
 namespace Terminals.Plugins.SshNet.Rendering
 {
@@ -36,13 +37,13 @@ namespace Terminals.Plugins.SshNet.Rendering
             this.rowBitmaps = new Bitmap[rowCount];
             for (int i = 0; i < rowCount; i++)
             {
-                this.rowBitmaps[i] = new Bitmap(width, rowHeight);
+                this.rowBitmaps[i] = new Bitmap(width, rowHeight, PixelFormat.Format32bppPArgb);
                 using (Graphics g = Graphics.FromImage(this.rowBitmaps[i]))
                     g.Clear(Color.Black);
             }
         }
 
-        internal void PaintRow(int rowIndex, TerminalCellGrid grid, TerminalAtlasPainter painter)
+        internal void PaintRow(int rowIndex, TerminalCellGrid grid, ITerminalPainter painter)
         {
             if (this.rowBitmaps == null
                 || rowIndex < 0
@@ -54,37 +55,35 @@ namespace Terminals.Plugins.SshNet.Rendering
             }
 
             Bitmap rowBitmap = this.rowBitmaps[rowIndex];
-            using (Graphics graphics = Graphics.FromImage(rowBitmap))
+            SkiaBitmapBridge.PaintFull(rowBitmap, canvas =>
             {
-                graphics.Clear(Color.Black);
-                painter.PaintRow(graphics, grid, rowIndex, 0);
-            }
+                painter.ConfigureCanvas(canvas);
+                painter.PaintRow(canvas, grid, rowIndex, 0);
+            });
         }
 
-        internal void BlitToFrame(Graphics frameGraphics, IList<int> dirtyRows)
+        internal void Reset()
         {
-            if (frameGraphics == null || this.rowBitmaps == null || dirtyRows == null)
-                return;
-
-            foreach (int row in dirtyRows)
-            {
-                if (row < 0 || row >= this.rowBitmaps.Length)
-                    continue;
-
-                int y = row * this.rowHeight;
-                frameGraphics.DrawImage(this.rowBitmaps[row], 0, y);
-            }
+            this.DisposeRows();
+            this.rowWidth = 0;
+            this.rowHeight = 0;
         }
 
-        internal void BlitAllRows(Graphics frameGraphics)
+        internal void BlitToFrame(Bitmap frameBitmap, IList<int> dirtyRows, int rowHeight)
         {
-            if (frameGraphics == null || this.rowBitmaps == null)
+            if (frameBitmap == null || this.rowBitmaps == null || dirtyRows == null)
                 return;
 
-            for (int row = 0; row < this.rowBitmaps.Length; row++)
+            using (var graphics = Graphics.FromImage(frameBitmap))
             {
-                int y = row * this.rowHeight;
-                frameGraphics.DrawImage(this.rowBitmaps[row], 0, y);
+                foreach (int row in dirtyRows)
+                {
+                    if (row < 0 || row >= this.rowBitmaps.Length)
+                        continue;
+
+                    int y = row * rowHeight;
+                    graphics.DrawImage(this.rowBitmaps[row], 0, y);
+                }
             }
         }
 

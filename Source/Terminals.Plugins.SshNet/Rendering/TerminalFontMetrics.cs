@@ -4,6 +4,7 @@
 using System;
 using System.Drawing;
 using System.Windows.Forms;
+using SkiaSharp;
 
 namespace Terminals.Plugins.SshNet.Rendering
 {
@@ -14,16 +15,25 @@ namespace Terminals.Plugins.SshNet.Rendering
         private readonly Font italicFont;
         private readonly Font boldItalicFont;
 
-        internal TerminalFontMetrics(float fontPointSize, float dpiScale)
+        internal TerminalFontMetrics(float fontPointSize)
         {
-            float size = fontPointSize * Math.Max(0.5f, dpiScale);
-            this.regularFont = CreateFont(size, FontStyle.Regular);
-            this.boldFont = CreateFont(size, FontStyle.Bold);
-            this.italicFont = CreateFont(size, FontStyle.Italic);
-            this.boldItalicFont = CreateFont(size, FontStyle.Bold | FontStyle.Italic);
-            this.CellWidth = MeasureMonospaceCellWidth(this.regularFont);
-            this.CellHeight = Math.Max(1, this.regularFont.Height);
+            if (fontPointSize < 1f)
+                fontPointSize = 1f;
+
+            this.FontSize = fontPointSize;
+            this.regularFont = CreateFont(this.FontSize, FontStyle.Regular);
+            this.boldFont = CreateFont(this.FontSize, FontStyle.Bold);
+            this.italicFont = CreateFont(this.FontSize, FontStyle.Italic);
+            this.boldItalicFont = CreateFont(this.FontSize, FontStyle.Bold | FontStyle.Italic);
+
+            int cellWidth;
+            int cellHeight;
+            MeasureCellSizeFromSkia(this.FontSize, out cellWidth, out cellHeight);
+            this.CellWidth = cellWidth;
+            this.CellHeight = cellHeight;
         }
+
+        internal float FontSize { get; }
 
         internal int CellWidth { get; }
 
@@ -66,6 +76,63 @@ namespace Terminals.Plugins.SshNet.Rendering
 
             int tenChars = TextRenderer.MeasureText("MMMMMMMMMM", font, Size.Empty, flags).Width;
             return Math.Max(1, tenChars / 10);
+        }
+
+        internal static float ComputeTextBaseline(float fontSize, int cellHeight)
+        {
+            using (var typeface = CreateSkiaTypeface(SKFontStyle.Normal))
+            using (var font = new SKFont(typeface, fontSize))
+            {
+                SKFontMetrics fontMetrics;
+                font.GetFontMetrics(out fontMetrics);
+                return -fontMetrics.Ascent;
+            }
+        }
+
+        private static void MeasureCellSizeFromSkia(float fontSize, out int cellWidth, out int cellHeight)
+        {
+            using (var typeface = CreateSkiaTypeface(SKFontStyle.Normal))
+            using (var font = new SKFont(typeface, fontSize))
+            {
+                SKFontMetrics fontMetrics;
+                font.GetFontMetrics(out fontMetrics);
+                cellHeight = Math.Max(1, (int)Math.Ceiling(fontMetrics.Descent - fontMetrics.Ascent));
+
+                float width = MeasureMonospaceAdvance(font, "00");
+                if (width <= 0f)
+                    width = MeasureMonospaceAdvance(font, "MM");
+                if (width <= 0f)
+                    width = MeasureMonospaceAdvance(font, "@@");
+
+                cellWidth = Math.Max(1, (int)Math.Ceiling(width));
+            }
+        }
+
+        private static float MeasureMonospaceAdvance(SKFont font, string sample)
+        {
+            if (string.IsNullOrEmpty(sample) || sample.Length < 2)
+                return 0f;
+
+            var glyphs = new ushort[sample.Length];
+            font.GetGlyphs(sample, glyphs);
+            var widths = new float[sample.Length];
+            using (var paint = new SKPaint())
+                font.GetGlyphWidths(glyphs, widths, null, paint);
+
+            float total = 0f;
+            for (int i = 0; i < widths.Length; i++)
+                total += widths[i];
+            return total / sample.Length;
+        }
+
+        private static SKTypeface CreateSkiaTypeface(SKFontStyle style)
+        {
+            SKTypeface typeface = SKTypeface.FromFamilyName("Consolas", style);
+            if (typeface == null || typeface.FamilyName == null)
+                typeface = SKTypeface.FromFamilyName("Courier New", style);
+            if (typeface == null)
+                typeface = SKTypeface.FromFamilyName(SKTypeface.Default.FamilyName, style);
+            return typeface;
         }
 
         private static Font CreateFont(float size, FontStyle style)

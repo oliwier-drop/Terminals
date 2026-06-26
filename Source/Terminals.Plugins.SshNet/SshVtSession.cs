@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Text;
 using VtNetCore.VirtualTerminal;
 using VtNetCore.VirtualTerminal.Enums;
+using VtNetCore.VirtualTerminal.Model;
 using VtNetCore.XTermParser;
 
 namespace Terminals.Plugins.SshNet
@@ -16,6 +17,24 @@ namespace Terminals.Plugins.SshNet
         private static readonly FieldInfo ActiveBufferField = typeof(VirtualTerminalController).GetField(
             "<ActiveBuffer>k__BackingField",
             BindingFlags.Instance | BindingFlags.NonPublic);
+
+        private static readonly FieldInfo AlternativeBufferField = typeof(VirtualTerminalController).GetField(
+            "alternativeBuffer",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        private static readonly string[] AlternateEnterSequences =
+        {
+            "\x1b[?1049h",
+            "\x1b[?1047h",
+            "\x1b[?47h",
+        };
+
+        private static readonly string[] AlternateLeaveSequences =
+        {
+            "\x1b[?1049l",
+            "\x1b[?1047l",
+            "\x1b[?47l",
+        };
 
         private readonly VirtualTerminalController controller;
         private readonly DataConsumer consumer;
@@ -65,7 +84,44 @@ namespace Terminals.Plugins.SshNet
             if (string.IsNullOrEmpty(text))
                 return;
 
-            this.PushBytes(Encoding.UTF8.GetBytes(text));
+            while (text.Length > 0)
+            {
+                int enterAt = FindEarliestSequence(text, AlternateEnterSequences, out int enterLength);
+                int leaveAt = FindEarliestSequence(text, AlternateLeaveSequences, out int leaveLength);
+
+                int nextAt;
+                int sequenceLength;
+                bool isEnter;
+                if (enterAt < 0 && leaveAt < 0)
+                {
+                    this.PushBytes(Encoding.UTF8.GetBytes(text));
+                    return;
+                }
+
+                if (enterAt >= 0 && (leaveAt < 0 || enterAt <= leaveAt))
+                {
+                    nextAt = enterAt;
+                    sequenceLength = enterLength;
+                    isEnter = true;
+                }
+                else
+                {
+                    nextAt = leaveAt;
+                    sequenceLength = leaveLength;
+                    isEnter = false;
+                }
+
+                if (nextAt > 0)
+                    this.PushBytes(Encoding.UTF8.GetBytes(text.Substring(0, nextAt)));
+
+                this.PushBytes(Encoding.UTF8.GetBytes(text.Substring(nextAt, sequenceLength)));
+                if (isEnter)
+                    this.SyncAlternateEnter();
+                else
+                    this.SyncAlternateLeave();
+
+                text = text.Substring(nextAt + sequenceLength);
+            }
         }
 
         internal void Push(byte[] data, int offset, int count)
@@ -75,19 +131,60 @@ namespace Terminals.Plugins.SshNet
 
             if (offset == 0 && count == data.Length)
             {
-                this.PushBytes(data);
+                this.Push(Encoding.UTF8.GetString(data));
                 return;
             }
 
             var slice = new byte[count];
             Buffer.BlockCopy(data, offset, slice, 0, count);
-            this.PushBytes(slice);
+            this.Push(Encoding.UTF8.GetString(slice));
         }
 
         private void PushBytes(byte[] data)
         {
             this.consumer.Push(data);
             this.RefreshAlternateScreenFlag();
+        }
+
+        private static int FindEarliestSequence(string text, string[] sequences, out int sequenceLength)
+        {
+            sequenceLength = 0;
+            int earliest = -1;
+            for (int i = 0; i < sequences.Length; i++)
+            {
+                string sequence = sequences[i];
+                int index = text.IndexOf(sequence, StringComparison.Ordinal);
+                if (index < 0 || (earliest >= 0 && index >= earliest))
+                    continue;
+
+                earliest = index;
+                sequenceLength = sequence.Length;
+            }
+
+            return earliest;
+        }
+
+        private void SyncAlternateEnter()
+        {
+            this.controller.EnableAlternateBuffer();
+            this.ClearAlternateBufferStorage();
+            this.controller.SetCursorPosition(1, 1);
+            this.RefreshAlternateScreenFlag();
+        }
+
+        private void SyncAlternateLeave()
+        {
+            this.controller.EnableNormalBuffer();
+            this.RefreshAlternateScreenFlag();
+        }
+
+        private void ClearAlternateBufferStorage()
+        {
+            if (AlternativeBufferField == null)
+                return;
+
+            var lines = AlternativeBufferField.GetValue(this.controller) as TerminalLines;
+            lines?.Clear();
         }
 
         private void RefreshAlternateScreenFlag()

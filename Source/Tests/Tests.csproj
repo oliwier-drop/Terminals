@@ -205,7 +205,10 @@
     <Compile Include="SshNet\TerminalCellGridBuilderTests.cs" />
     <Compile Include="SshNet\TerminalGlyphAtlasTests.cs" />
     <Compile Include="SshNet\TerminalRowDifferTests.cs" />
+    <Compile Include="SshNet\TerminalDisplayScaleTests.cs" />
+    <Compile Include="SshNet\TerminalFontMetricsTests.cs" />
     <Compile Include="SshNet\TerminalRenderPipelineTests.cs" />
+    <Compile Include="SshNet\TerminalRowSpanBuilderTests.cs" />
     <Compile Include="SshNet\TerminalTextSelectionTests.cs" />
     <Compile Include="SshNet\TerminalRenderPolicyTests.cs" />
     <Compile Include="SshNet\SshLocalEchoControllerTests.cs" />

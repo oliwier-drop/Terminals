@@ -13,7 +13,7 @@ namespace Tests.SshNet
         [TestMethod]
         public void Atlas_ContainsAsciiLetters_WithPositiveCellSize()
         {
-            using (var metrics = new TerminalFontMetrics(10f, 1f))
+            using (var metrics = new TerminalFontMetrics(10f))
             using (var atlas = new TerminalGlyphAtlas(metrics))
             {
                 Assert.IsTrue(atlas.CellWidth > 0);
@@ -30,7 +30,7 @@ namespace Tests.SshNet
         [TestMethod]
         public void Atlas_LazyGlyph_AllocatesBeyondAscii()
         {
-            using (var metrics = new TerminalFontMetrics(10f, 1f))
+            using (var metrics = new TerminalFontMetrics(10f))
             using (var atlas = new TerminalGlyphAtlas(metrics))
             {
                 Assert.IsTrue(atlas.TryGetGlyphRect('\u0105', GlyphStyle.Regular, out var rect));
@@ -43,7 +43,7 @@ namespace Tests.SshNet
         [TestMethod]
         public void Atlas_Styles_UseSeparateGlyphRects()
         {
-            using (var metrics = new TerminalFontMetrics(10f, 1f))
+            using (var metrics = new TerminalFontMetrics(10f))
             using (var atlas = new TerminalGlyphAtlas(metrics))
             {
                 Assert.IsTrue(atlas.TryGetGlyphRect('A', GlyphStyle.Regular, out var regular));
@@ -59,7 +59,7 @@ namespace Tests.SshNet
         [TestMethod]
         public void Atlas_ManyDynamicGlyphs_CachesAllocatedRects()
         {
-            using (var metrics = new TerminalFontMetrics(10f, 1f))
+            using (var metrics = new TerminalFontMetrics(10f))
             using (var atlas = new TerminalGlyphAtlas(metrics))
             {
                 for (int i = 0; i < 64; i++)
