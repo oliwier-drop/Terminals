@@ -1,5 +1,7 @@
 # Terminals (SSH.NET fork) — v1.0.6
 
+> **WITHDRAWN — do not use.** SSH terminal still does not render. Use [v1.0.7](RELEASE-v1.0.7-notes.md) or newer. See [WITHDRAWN-RELEASES.md](WITHDRAWN-RELEASES.md).
+
 **Not affiliated with [Terminals-Origin/Terminals](https://github.com/Terminals-Origin/Terminals).**
 
 Hotfix after v1.0.5 — SSH terminal was blank (gray square) because SkiaSharp runtime files were missing from the MSI/ZIP.

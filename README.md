@@ -7,7 +7,7 @@ This repository is a **fork** of the open-source Terminals project — a secure,
 | | |
 |---|---|
 | **Repository** | [oliwier-drop/Terminals](https://github.com/oliwier-drop/Terminals) |
-| **Releases** | [GitHub Releases](https://github.com/oliwier-drop/Terminals/releases) |
+| **Releases** | [GitHub Releases](https://github.com/oliwier-drop/Terminals/releases) — **use v1.0.7+** ([v1.0.5](Docs/RELEASE-v1.0.5-notes.md) / [v1.0.6](Docs/RELEASE-v1.0.6-notes.md) are withdrawn) |
 | **Issues** | [Report issues](https://github.com/oliwier-drop/Terminals/issues) |
 
 ## What this fork is for

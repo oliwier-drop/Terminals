@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<?define ForkDisplayName = "Terminals (SSH.NET fork) 1.0.6" ?>
-<?define ForkInstallFolder = "Terminals-fork-1.0.6" ?>
+<?define ForkDisplayName = "Terminals (SSH.NET fork) 1.0.7" ?>
+<?define ForkInstallFolder = "Terminals-fork-1.0.7" ?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
   <!--to make new release change all product id, package id and version number-->
-  <Product Id="*" Name="$(var.ForkDisplayName)" Language="1033" Version="1.0.6.0" Manufacturer="Oliwier Drop"
+  <Product Id="*" Name="$(var.ForkDisplayName)" Language="1033" Version="1.0.7.0" Manufacturer="Oliwier Drop"
            UpgradeCode="A8F3C2E1-9B4D-4A6F-B1E2-7C3D5E8F9012">
     <Package Id="*" InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
     <MajorUpgrade Schedule="afterInstallInitialize" DowngradeErrorMessage="A newer version of $(var.ForkDisplayName) is already installed." />
@@ -57,17 +57,9 @@
               <Directory Id="PUTTYRESOURCESFOLDER" Name="Resources" />
             </Directory>
             <Directory Id="SSHNETFOLDER" Name="SshNet">
-              <Directory Id="SSHNETRUNTIMESFOLDER" Name="runtimes">
-                <Directory Id="SSHNETRUNTIMESWINX86" Name="win-x86">
-                  <Directory Id="SSHNETRUNTIMESWINX86NATIVE" Name="native" />
-                </Directory>
-                <Directory Id="SSHNETRUNTIMESWINX64" Name="win-x64">
-                  <Directory Id="SSHNETRUNTIMESWINX64NATIVE" Name="native" />
-                </Directory>
-                <Directory Id="SSHNETRUNTIMESWINARM64" Name="win-arm64">
-                  <Directory Id="SSHNETRUNTIMESWINARM64NATIVE" Name="native" />
-                </Directory>
-              </Directory>
+              <Directory Id="SSHNETX86FOLDER" Name="x86" />
+              <Directory Id="SSHNETX64FOLDER" Name="x64" />
+              <Directory Id="SSHNETARM64FOLDER" Name="arm64" />
             </Directory>
             <Directory Id="VMRCFOLDER" Name="Vmrc" />
             <Directory Id="VNCFOLDER" Name="Vnc" />
@@ -85,7 +77,7 @@
     <DirectoryRef Id="TerminalsProgramsFolder">
       <Component Id="ApplicationShortcut" Guid="42B36D8B-C5D6-493C-A794-D158800D9229">
         <Shortcut Id="ApplicationStartMenuShortcut"
-             Name="$(var.ForkDisplayName)" Description="Terminals SSH.NET fork v1.0.6 (upstream base 4.0.1)."
+             Name="$(var.ForkDisplayName)" Description="Terminals SSH.NET fork v1.0.7 (upstream base 4.0.1)."
              Target="[INSTALLFOLDER]Terminals.exe" WorkingDirectory="INSTALLFOLDER">
           <Icon Id="terminalsicon.ico" SourceFile="..\Terminals\terminalsicon.ico"/>
         </Shortcut>

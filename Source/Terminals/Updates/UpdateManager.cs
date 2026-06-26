@@ -105,7 +105,7 @@ namespace Terminals.Updates
 
         private static Release SelectNewvestRssItem(Release[] feed, Version currentVersion)
         {
-            return feed.Where(item => item.Version > currentVersion)
+            return feed.Where(item => !item.Prerelease && item.Version > currentVersion)
                        .OrderByDescending(selected => selected.Version)
                        .FirstOrDefault();
         }

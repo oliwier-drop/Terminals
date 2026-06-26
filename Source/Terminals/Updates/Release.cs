@@ -15,5 +15,8 @@ namespace Terminals.Updates
         [JsonProperty("published_at")]
 
         public DateTime Published { get; set; }
+
+        [JsonProperty("prerelease")]
+        public bool Prerelease { get; set; }
     }
 }

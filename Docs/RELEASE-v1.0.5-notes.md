@@ -1,5 +1,7 @@
 # Terminals (SSH.NET fork) — v1.0.5
 
+> **WITHDRAWN — do not use.** SSH terminal does not render (missing SkiaSharp). Use [v1.0.7](RELEASE-v1.0.7-notes.md) or newer. See [WITHDRAWN-RELEASES.md](WITHDRAWN-RELEASES.md).
+
 **Not affiliated with [Terminals-Origin/Terminals](https://github.com/Terminals-Origin/Terminals).**
 
 Performance release after v1.0.4 — SkiaSharp SSH terminal renderer, adaptive display scaling, and fixes for vim/nano and fast server output.

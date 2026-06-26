@@ -6,7 +6,7 @@ Single place for **planned and completed work** on this Terminals fork. Upstream
 
 **Licensing:** fork-authored code is **GPL-3.0** — see [FORK-AUTHORED.md](FORK-AUTHORED.md) and `SPDX-License-Identifier` headers in source files.
 
-Release notes: [v1.0.0](Docs/RELEASE-v1.0.0-notes.md) · [v1.0.1](Docs/RELEASE-v1.0.1-notes.md) · [v1.0.2](Docs/RELEASE-v1.0.2-notes.md) · [v1.0.3](Docs/RELEASE-v1.0.3-notes.md) · [v1.0.4](Docs/RELEASE-v1.0.4-notes.md) · [v1.0.5](Docs/RELEASE-v1.0.5-notes.md) · [v1.0.6](Docs/RELEASE-v1.0.6-notes.md)
+Release notes: [v1.0.0](Docs/RELEASE-v1.0.0-notes.md) · [v1.0.1](Docs/RELEASE-v1.0.1-notes.md) · [v1.0.2](Docs/RELEASE-v1.0.2-notes.md) · [v1.0.3](Docs/RELEASE-v1.0.3-notes.md) · [v1.0.4](Docs/RELEASE-v1.0.4-notes.md) · ~~[v1.0.5](Docs/RELEASE-v1.0.5-notes.md)~~ · ~~[v1.0.6](Docs/RELEASE-v1.0.6-notes.md)~~ · **[v1.0.7](Docs/RELEASE-v1.0.7-notes.md)** · [Withdrawn releases](Docs/WITHDRAWN-RELEASES.md)
 
 ---
 
@@ -70,7 +70,13 @@ Release notes: [v1.0.0](Docs/RELEASE-v1.0.0-notes.md) · [v1.0.1](Docs/RELEASE-v
 
 ### Done — `v1.0.6`
 
-- [x] **SkiaSharp packaging fix** — ship `SkiaSharp.dll` + `libSkiaSharp` native runtimes in MSI/ZIP (fixes blank SSH terminal in v1.0.5 installs)
+- [—] **SkiaSharp packaging fix** — superseded by v1.0.7 (wrong native path; release withdrawn)
+
+### Done — `v1.0.7`
+
+- [x] **SkiaSharp native path fix** — `x64\` / `x86\` / `arm64\` layout via official NativeAssets targets; WiX + ZIP corrected
+- [x] **SSH render performance** — tail-follow scroll blit, row budget + deferred paint, batch DrawText, gentler catch-up, direct frame paint, VT parse worker off UI thread
+- [x] **Withdrawn v1.0.5/v1.0.6** — documented in [WITHDRAWN-RELEASES.md](Docs/WITHDRAWN-RELEASES.md); updater skips GitHub pre-releases
 
 ### Planned
 
