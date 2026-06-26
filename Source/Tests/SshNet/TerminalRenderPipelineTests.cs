@@ -49,7 +49,7 @@ namespace Tests.SshNet
         }
 
         [TestMethod]
-        public void UpdateFrame_LimitedBudget_PaintsAllDirtyRowsWithoutDeferral()
+        public void UpdateFrame_LimitedBudget_DefersExcessDirtyRows()
         {
             using (var pipeline = new TerminalRenderPipeline())
             using (var bitmap = new Bitmap(200, 128))
@@ -70,8 +70,45 @@ namespace Tests.SshNet
                     maxRowsToPaint: 1,
                     deferredRows: deferred);
 
-                Assert.AreEqual(0, deferred.Count);
-                Assert.AreEqual(4, painted.Count);
+                CollectionAssert.AreEqual(new[] { 0 }, ToArray(painted));
+                CollectionAssert.AreEqual(new[] { 1, 2, 3 }, ToArray(deferred));
+
+                IList<int> secondPainted = pipeline.PaintDeferredRows(
+                    bitmap,
+                    session.Controller,
+                    0,
+                    bitmap.Width,
+                    maxRowsToPaint: 2,
+                    deferredRows: deferred);
+
+                CollectionAssert.AreEqual(new[] { 1, 2 }, ToArray(secondPainted));
+                CollectionAssert.AreEqual(new[] { 3 }, ToArray(deferred));
+            }
+        }
+
+        [TestMethod]
+        public void TryScrollBitmapOnly_WithPreviousGrid_ReturnsTrue()
+        {
+            using (var pipeline = new TerminalRenderPipeline())
+            using (var bitmap = new Bitmap(200, 96))
+            {
+                pipeline.UpdateDisplayScale(10f);
+                var session = CreateSession("one\r\ntwo\r\nthree", 10, 3);
+                pipeline.UpdateFrame(bitmap, session.Controller, 0, bitmap.Width, bitmap.Height, new TerminalRowDiffOptions());
+
+                Assert.IsTrue(pipeline.TryScrollBitmapOnly(bitmap, 1, 3, bitmap.Width));
+            }
+        }
+
+        [TestMethod]
+        public void TryScrollBitmapOnly_WithoutPreviousGrid_ReturnsFalse()
+        {
+            using (var pipeline = new TerminalRenderPipeline())
+            using (var bitmap = new Bitmap(200, 96))
+            {
+                pipeline.UpdateDisplayScale(10f);
+
+                Assert.IsFalse(pipeline.TryScrollBitmapOnly(bitmap, 1, 3, bitmap.Width));
             }
         }
 

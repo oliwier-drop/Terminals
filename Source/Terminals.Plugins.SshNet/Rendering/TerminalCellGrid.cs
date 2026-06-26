@@ -2,6 +2,7 @@
 // Copyright (c) oliwier-drop and contributors - fork-authored code.
 // See LICENSE.md and FORK-AUTHORED.md at the repository root.
 using System;
+using System.Collections.Generic;
 
 namespace Terminals.Plugins.SshNet.Rendering
 {
@@ -68,6 +69,31 @@ namespace Terminals.Plugins.SshNet.Rendering
             }
 
             Array.Copy(source.cells, this.cells, this.cells.Length);
+        }
+
+        internal void CopyRowFrom(TerminalCellGrid source, int row)
+        {
+            if (source == null
+                || source.Columns != this.Columns
+                || source.Rows != this.Rows
+                || row < 0
+                || row >= this.Rows)
+            {
+                return;
+            }
+
+            int sourceOffset = row * this.Columns;
+            int destOffset = sourceOffset;
+            Array.Copy(source.cells, sourceOffset, this.cells, destOffset, this.Columns);
+        }
+
+        internal void CopyRowsFrom(TerminalCellGrid source, IList<int> rows)
+        {
+            if (source == null || rows == null || rows.Count == 0)
+                return;
+
+            for (int i = 0; i < rows.Count; i++)
+                this.CopyRowFrom(source, rows[i]);
         }
 
         internal TerminalCellGrid Clone()

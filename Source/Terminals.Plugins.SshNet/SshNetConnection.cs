@@ -735,10 +735,7 @@ namespace Terminals.Plugins.SshNet
                     return;
 
                 Action flush = this.FlushUiOutputBatch;
-                if (this.terminalControl.IsAlternateScreenActive)
-                    this.Invoke(flush);
-                else
-                    this.BeginInvoke(flush);
+                this.BeginInvoke(flush);
                 return;
             }
 
@@ -783,10 +780,7 @@ namespace Terminals.Plugins.SshNet
                     && Interlocked.CompareExchange(ref this.uiOutputFlushScheduled, 1, 0) == 0)
                 {
                     Action flush = this.FlushUiOutputBatch;
-                    if (this.terminalControl.IsAlternateScreenActive)
-                        this.Invoke(flush);
-                    else
-                        this.BeginInvoke(flush);
+                    this.BeginInvoke(flush);
                 }
             }
         }

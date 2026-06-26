@@ -87,20 +87,12 @@ namespace Terminals.Plugins.SshNet.Rendering
                 using (var font = this.CreateFont(span))
                 {
                     SKPaint paint = this.GetTextPaint(span.Foreground);
-                    for (int i = 0; i < span.Length; i++)
-                    {
-                        char codePoint = span.Text[i];
-                        if (codePoint == ' ')
-                            continue;
-
-                        int cellX = x + (i * cellW);
-                        canvas.DrawText(
-                            codePoint.ToString(),
-                            cellX,
-                            destinationY + this.textBaseline,
-                            font,
-                            paint);
-                    }
+                    canvas.DrawText(
+                        span.Text,
+                        x,
+                        destinationY + this.textBaseline,
+                        font,
+                        paint);
                 }
             }
         }
@@ -149,24 +141,19 @@ namespace Terminals.Plugins.SshNet.Rendering
         {
             int cellW = this.CellWidth;
             int cellH = this.CellHeight;
-            for (int i = 0; i < span.Length; i++)
-            {
-                char codePoint = span.Text[i];
-                if (codePoint == ' ')
-                    continue;
+            if (span.Length <= 0 || string.IsNullOrEmpty(span.Text))
+                return;
 
-                int cellX = x + (i * cellW);
-                canvas.DrawRect(cellX, destinationY, cellW, cellH, this.GetFillPaint(span.Background));
-                using (var font = this.CreateFont(span.Bold, span.Italic))
-                {
-                    SKPaint paint = this.GetTextPaint(span.Foreground);
-                    canvas.DrawText(
-                        codePoint.ToString(),
-                        cellX,
-                        destinationY + this.textBaseline,
-                        font,
-                        paint);
-                }
+            canvas.DrawRect(x, destinationY, span.Length * cellW, cellH, this.GetFillPaint(span.Background));
+            using (var font = this.CreateFont(span.Bold, span.Italic))
+            {
+                SKPaint paint = this.GetTextPaint(span.Foreground);
+                canvas.DrawText(
+                    span.Text,
+                    x,
+                    destinationY + this.textBaseline,
+                    font,
+                    paint);
             }
         }
 

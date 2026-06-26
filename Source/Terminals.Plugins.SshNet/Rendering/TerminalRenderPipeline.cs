@@ -10,6 +10,8 @@ namespace Terminals.Plugins.SshNet.Rendering
 {
     internal sealed class TerminalRenderPipeline : IDisposable
     {
+        private const int DirectPaintRowThreshold = 8;
+
         private readonly TerminalRowDiffer differ = new TerminalRowDiffer();
         private readonly TerminalRowBitmapCache rowCache = new TerminalRowBitmapCache();
         private TerminalFontMetrics fontMetrics;
@@ -85,7 +87,38 @@ namespace Terminals.Plugins.SshNet.Rendering
             IList<int> dirtyRows = this.differ.GetDirtyRows(this.previousGrid, grid, diffOptions);
             IList<int> rowsToPaint = SplitRowsForBudget(dirtyRows, maxRowsToPaint, deferredRows);
             this.PaintRowsToFrame(frameBitmap, grid, rowsToPaint, frameWidth);
-            this.StorePreviousGrid(grid);
+            this.StorePreviousRows(grid, rowsToPaint);
+            return rowsToPaint;
+        }
+
+        internal IList<int> UpdateFrameWithScroll(
+            Bitmap frameBitmap,
+            VirtualTerminalController controller,
+            int viewTopRow,
+            int frameWidth,
+            int frameHeight,
+            TerminalRowDiffOptions diffOptions,
+            int scrollDeltaRows,
+            int maxRowsToPaint,
+            IList<int> deferredRows)
+        {
+            if (frameBitmap == null || controller == null || this.painter == null)
+                return Array.Empty<int>();
+
+            int visibleRows = Math.Max(1, controller.VisibleRows);
+            if (scrollDeltaRows != 0
+                && !this.TryScrollBitmapOnly(frameBitmap, scrollDeltaRows, visibleRows, frameWidth))
+            {
+                this.RebuildFullFrame(frameBitmap, controller, viewTopRow, frameWidth);
+                return null;
+            }
+
+            TerminalCellGrid grid = this.BuildGrid(controller, viewTopRow);
+            this.workingGrid = grid;
+            IList<int> dirtyRows = this.differ.GetDirtyRows(this.previousGrid, grid, diffOptions);
+            IList<int> rowsToPaint = SplitRowsForBudget(dirtyRows, maxRowsToPaint, deferredRows);
+            this.PaintRowsToFrame(frameBitmap, grid, rowsToPaint, frameWidth);
+            this.StorePreviousRows(grid, rowsToPaint);
             return rowsToPaint;
         }
 
@@ -104,6 +137,7 @@ namespace Terminals.Plugins.SshNet.Rendering
             this.workingGrid = grid;
             IList<int> rowsToPaint = TakeRows(deferredRows, maxRowsToPaint);
             this.PaintRowsToFrame(frameBitmap, grid, rowsToPaint, frameWidth);
+            this.StorePreviousRows(grid, rowsToPaint);
             return rowsToPaint;
         }
 
@@ -114,6 +148,24 @@ namespace Terminals.Plugins.SshNet.Rendering
 
             int rowHeight = this.CellHeight;
             int rowWidth = Math.Max(1, frameWidth);
+            bool useDirectPaint = rowsToPaint.Count <= DirectPaintRowThreshold;
+
+            if (useDirectPaint)
+            {
+                foreach (int row in rowsToPaint)
+                {
+                    int y = row * rowHeight;
+                    var region = new Rectangle(0, y, rowWidth, rowHeight);
+                    SkiaBitmapBridge.PaintRegion(frameBitmap, region, canvas =>
+                    {
+                        this.painter.ConfigureCanvas(canvas);
+                        this.painter.PaintRow(canvas, grid, row, y);
+                    });
+                }
+
+                return;
+            }
+
             this.rowCache.EnsureSize(rowWidth, rowHeight, grid.Rows);
 
             foreach (int row in rowsToPaint)
@@ -124,10 +176,26 @@ namespace Terminals.Plugins.SshNet.Rendering
 
         private static IList<int> SplitRowsForBudget(IList<int> dirtyRows, int maxRowsToPaint, IList<int> deferredRows)
         {
-            if (deferredRows != null)
-                deferredRows.Clear();
+            if (dirtyRows == null || dirtyRows.Count == 0)
+                return Array.Empty<int>();
 
-            return dirtyRows ?? Array.Empty<int>();
+            if (maxRowsToPaint <= 0 || maxRowsToPaint == int.MaxValue)
+                return dirtyRows;
+
+            if (dirtyRows.Count <= maxRowsToPaint)
+                return dirtyRows;
+
+            var painted = new List<int>(maxRowsToPaint);
+            for (int i = 0; i < maxRowsToPaint; i++)
+                painted.Add(dirtyRows[i]);
+
+            if (deferredRows != null)
+            {
+                for (int i = maxRowsToPaint; i < dirtyRows.Count; i++)
+                    deferredRows.Add(dirtyRows[i]);
+            }
+
+            return painted;
         }
 
         private static IList<int> TakeRows(IList<int> sourceRows, int maxRowsToPaint)
@@ -240,6 +308,60 @@ namespace Terminals.Plugins.SshNet.Rendering
             }
         }
 
+        internal bool TryScrollBitmapOnly(
+            Bitmap frameBitmap,
+            int scrollDeltaRows,
+            int visibleRows,
+            int frameWidth)
+        {
+            if (frameBitmap == null || scrollDeltaRows == 0)
+                return scrollDeltaRows == 0;
+
+            if (this.previousGrid == null || Math.Abs(scrollDeltaRows) >= visibleRows)
+                return false;
+
+            int rowH = this.CellHeight;
+            int rowW = Math.Max(1, frameWidth);
+            int contentH = visibleRows * rowH;
+            int pixelDelta = scrollDeltaRows * rowH;
+            if (Math.Abs(pixelDelta) >= contentH)
+                return false;
+
+            this.EnsureScrollScratch(rowW, contentH);
+
+            using (var scratchGraphics = Graphics.FromImage(this.scrollScratch))
+            {
+                if (scrollDeltaRows > 0)
+                {
+                    int copyH = contentH - pixelDelta;
+                    scratchGraphics.DrawImage(
+                        frameBitmap,
+                        new Rectangle(0, 0, rowW, copyH),
+                        new Rectangle(0, pixelDelta, rowW, copyH),
+                        GraphicsUnit.Pixel);
+
+                    using (var frameGraphics = Graphics.FromImage(frameBitmap))
+                        frameGraphics.DrawImage(this.scrollScratch, 0, 0);
+                }
+                else
+                {
+                    int rowsEntered = -scrollDeltaRows;
+                    pixelDelta = rowsEntered * rowH;
+                    int copyH = contentH - pixelDelta;
+                    scratchGraphics.DrawImage(
+                        frameBitmap,
+                        new Rectangle(0, pixelDelta, rowW, copyH),
+                        new Rectangle(0, 0, rowW, copyH),
+                        GraphicsUnit.Pixel);
+
+                    using (var frameGraphics = Graphics.FromImage(frameBitmap))
+                        frameGraphics.DrawImage(this.scrollScratch, 0, 0);
+                }
+            }
+
+            return true;
+        }
+
         internal bool TryScrollFrame(
             Bitmap frameBitmap,
             VirtualTerminalController controller,
@@ -256,73 +378,56 @@ namespace Terminals.Plugins.SshNet.Rendering
             }
 
             int visibleRows = Math.Max(1, controller.VisibleRows);
-            if (this.previousGrid == null || Math.Abs(scrollDeltaRows) >= visibleRows)
-                return false;
-
-            int rowH = this.CellHeight;
-            int rowW = Math.Max(1, frameWidth);
-            int contentH = visibleRows * rowH;
-            int pixelDelta = scrollDeltaRows * rowH;
-            if (Math.Abs(pixelDelta) >= contentH)
+            if (!this.TryScrollBitmapOnly(frameBitmap, scrollDeltaRows, visibleRows, frameWidth))
                 return false;
 
             TerminalCellGrid grid = this.BuildGrid(controller, viewTopRow);
             this.workingGrid = grid;
-            this.EnsureScrollScratch(rowW, contentH);
+            int rowH = this.CellHeight;
+            int rowW = Math.Max(1, frameWidth);
             this.rowCache.EnsureSize(rowW, rowH, visibleRows);
-
-            using (var scratchGraphics = Graphics.FromImage(this.scrollScratch))
-            {
-                if (scrollDeltaRows > 0)
-                {
-                    int copyH = contentH - pixelDelta;
-                    scratchGraphics.DrawImage(
-                        frameBitmap,
-                        new Rectangle(0, 0, rowW, copyH),
-                        new Rectangle(0, pixelDelta, rowW, copyH),
-                        GraphicsUnit.Pixel);
-
-                    using (var frameGraphics = Graphics.FromImage(frameBitmap))
-                        frameGraphics.DrawImage(this.scrollScratch, 0, 0);
-
-                    for (int row = visibleRows - scrollDeltaRows; row < visibleRows; row++)
-                        this.rowCache.PaintRow(row, grid, this.painter);
-                }
-                else
-                {
-                    int rowsEntered = -scrollDeltaRows;
-                    pixelDelta = rowsEntered * rowH;
-                    int copyH = contentH - pixelDelta;
-                    scratchGraphics.DrawImage(
-                        frameBitmap,
-                        new Rectangle(0, pixelDelta, rowW, copyH),
-                        new Rectangle(0, 0, rowW, copyH),
-                        GraphicsUnit.Pixel);
-
-                    using (var frameGraphics = Graphics.FromImage(frameBitmap))
-                        frameGraphics.DrawImage(this.scrollScratch, 0, 0);
-
-                    for (int row = 0; row < rowsEntered; row++)
-                        this.rowCache.PaintRow(row, grid, this.painter);
-                }
-            }
 
             var exposedRows = new List<int>();
             if (scrollDeltaRows > 0)
             {
                 for (int row = visibleRows - scrollDeltaRows; row < visibleRows; row++)
+                {
+                    this.rowCache.PaintRow(row, grid, this.painter);
                     exposedRows.Add(row);
+                }
             }
             else
             {
                 int rowsEntered = -scrollDeltaRows;
                 for (int row = 0; row < rowsEntered; row++)
+                {
+                    this.rowCache.PaintRow(row, grid, this.painter);
                     exposedRows.Add(row);
+                }
             }
 
             this.rowCache.BlitToFrame(frameBitmap, exposedRows, rowH);
             this.StorePreviousGrid(grid);
             return true;
+        }
+
+        private void StorePreviousRows(TerminalCellGrid grid, IList<int> paintedRows)
+        {
+            if (grid == null)
+                return;
+
+            if (paintedRows == null || paintedRows.Count == 0)
+                return;
+
+            if (this.previousGrid == null
+                || this.previousGrid.Columns != grid.Columns
+                || this.previousGrid.Rows != grid.Rows)
+            {
+                this.previousGrid = grid.Clone();
+                return;
+            }
+
+            this.previousGrid.CopyRowsFrom(grid, paintedRows);
         }
 
         private void StorePreviousGrid(TerminalCellGrid grid)

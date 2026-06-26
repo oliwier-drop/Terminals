@@ -38,7 +38,13 @@ namespace Terminals.Plugins.SshNet
 
         private readonly VirtualTerminalController controller;
         private readonly DataConsumer consumer;
+        private readonly object syncRoot = new object();
         private bool alternateScreenActive;
+
+        internal object SyncRoot
+        {
+            get { return this.syncRoot; }
+        }
 
         internal SshVtSession()
         {
@@ -53,33 +59,59 @@ namespace Terminals.Plugins.SshNet
             get { return this.controller; }
         }
 
+        internal bool GetAlternateScreenActiveUnderLock()
+        {
+            return this.alternateScreenActive;
+        }
+
         internal int Columns
         {
-            get { return this.controller.VisibleColumns; }
+            get
+            {
+                lock (this.syncRoot)
+                    return this.controller.VisibleColumns;
+            }
         }
 
         internal int Rows
         {
-            get { return this.controller.VisibleRows; }
+            get
+            {
+                lock (this.syncRoot)
+                    return this.controller.VisibleRows;
+            }
         }
 
         internal bool IsAlternateScreenActive
         {
-            get { return this.alternateScreenActive; }
+            get
+            {
+                lock (this.syncRoot)
+                    return this.alternateScreenActive;
+            }
         }
 
         internal void Resize(int columns, int rows)
         {
-            if (columns < 1)
-                columns = 80;
-            if (rows < 1)
-                rows = 24;
+            lock (this.syncRoot)
+            {
+                if (columns < 1)
+                    columns = 80;
+                if (rows < 1)
+                    rows = 24;
 
-            this.controller.ResizeView(columns, rows);
-            this.RefreshAlternateScreenFlag();
+                this.controller.ResizeView(columns, rows);
+                this.RefreshAlternateScreenFlag();
+            }
         }
 
         internal void Push(string text)
+        {
+            lock (this.syncRoot)
+                this.PushCore(text);
+        }
+
+        internal void PushCore(string text)
         {
             if (string.IsNullOrEmpty(text))
                 return;
@@ -126,18 +158,21 @@ namespace Terminals.Plugins.SshNet
 
         internal void Push(byte[] data, int offset, int count)
         {
-            if (data == null || count <= 0)
-                return;
-
-            if (offset == 0 && count == data.Length)
+            lock (this.syncRoot)
             {
-                this.Push(Encoding.UTF8.GetString(data));
-                return;
-            }
+                if (data == null || count <= 0)
+                    return;
 
-            var slice = new byte[count];
-            Buffer.BlockCopy(data, offset, slice, 0, count);
-            this.Push(Encoding.UTF8.GetString(slice));
+                if (offset == 0 && count == data.Length)
+                {
+                    this.PushCore(Encoding.UTF8.GetString(data));
+                    return;
+                }
+
+                var slice = new byte[count];
+                Buffer.BlockCopy(data, offset, slice, 0, count);
+                this.PushCore(Encoding.UTF8.GetString(slice));
+            }
         }
 
         private void PushBytes(byte[] data)
@@ -198,16 +233,20 @@ namespace Terminals.Plugins.SshNet
 
         internal bool ConsumeChangedFlag()
         {
-            if (!this.controller.Changed)
-                return false;
+            lock (this.syncRoot)
+            {
+                if (!this.controller.Changed)
+                    return false;
 
-            this.controller.ClearChanges();
-            return true;
+                this.controller.ClearChanges();
+                return true;
+            }
         }
 
         internal string GetScreenText()
         {
-            return this.controller.GetScreenText();
+            lock (this.syncRoot)
+                return this.controller.GetScreenText();
         }
 
         internal string GetScreenTextForTest()

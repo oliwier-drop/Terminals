@@ -35,6 +35,7 @@ namespace Terminals.Plugins.SshNet
         private readonly SshVtSession session = new SshVtSession();
         private readonly TerminalRenderPipeline renderPipeline = new TerminalRenderPipeline();
         private readonly SshLocalEchoController localEcho = new SshLocalEchoController();
+        private readonly TerminalVtParseWorker vtParseWorker;
         private readonly Queue<string> pendingChunks = new Queue<string>();
         private readonly object pendingLock = new object();
         private readonly List<int> deferredPaintRows = new List<int>();
@@ -69,6 +70,7 @@ namespace Terminals.Plugins.SshNet
         private Point lastSelectionMouseLocation;
         private bool updatingScrollBar;
         private bool lastAlternateScreenActive;
+        private bool preserveFollowTailOnNextRender;
 
         internal int Columns
         {
@@ -142,6 +144,55 @@ namespace Terminals.Plugins.SshNet
             this.MouseMove += this.OnMouseMove;
             this.MouseUp += this.OnMouseUp;
             this.MouseWheel += this.OnMouseWheel;
+
+            this.vtParseWorker = new TerminalVtParseWorker(
+                this.session,
+                this,
+                this.GetVtParseCharBudget,
+                this.DequeuePendingChunks,
+                this.HasPendingChunks,
+                this.OnVtParseComplete);
+        }
+
+        private int GetVtParseCharBudget()
+        {
+            return this.IsCatchUpMode() ? CatchUpMaxCharsPerDrain : MaxCharsPerDrain;
+        }
+
+        private bool HasPendingChunks()
+        {
+            lock (this.pendingLock)
+                return this.pendingChunks.Count > 0;
+        }
+
+        private List<string> DequeuePendingChunks()
+        {
+            int charBudget = this.GetVtParseCharBudget();
+            int charCount = 0;
+            var chunks = new List<string>();
+            lock (this.pendingLock)
+            {
+                while (this.pendingChunks.Count > 0 && charCount < charBudget)
+                {
+                    string chunk = this.pendingChunks.Dequeue();
+                    chunks.Add(chunk);
+                    charCount += chunk != null ? chunk.Length : 0;
+                }
+            }
+
+            return chunks;
+        }
+
+        private void OnVtParseComplete(bool forceFullRepaint)
+        {
+            if (this.IsDisposed)
+                return;
+
+            this.followTail = this.preserveFollowTailOnNextRender;
+            this.RenderSessionChanges(forceFullRepaint);
+
+            if (this.HasPendingChunks())
+                this.vtParseWorker.SignalProcess();
         }
 
         internal void GetTerminalDimensions(out int columns, out int rows)
@@ -182,6 +233,7 @@ namespace Terminals.Plugins.SshNet
                 this.pendingChunks.Enqueue(text);
             }
 
+            this.preserveFollowTailOnNextRender = this.followTail || this.IsAtTail();
             this.ScheduleRender();
         }
 
@@ -201,8 +253,9 @@ namespace Terminals.Plugins.SshNet
                 this.pendingChunks.Enqueue(text);
             }
 
+            this.preserveFollowTailOnNextRender = this.followTail || this.IsAtTail();
             this.renderTimer.Stop();
-            this.DrainAndRender();
+            this.vtParseWorker.DrainAllSynchronously();
         }
 
         internal void AppendServerAnsi(string text)
@@ -257,6 +310,7 @@ namespace Terminals.Plugins.SshNet
         {
             if (disposing)
             {
+                this.vtParseWorker.Dispose();
                 this.renderTimer.Stop();
                 this.renderTimer.Dispose();
                 this.localResizeCoalesceTimer.Stop();
@@ -821,9 +875,6 @@ namespace Terminals.Plugins.SshNet
 
         private void DrainAndRender()
         {
-            List<string> chunks = new List<string>();
-            int charBudget = this.IsCatchUpMode() ? CatchUpMaxCharsPerDrain : MaxCharsPerDrain;
-            int charCount = 0;
             lock (this.pendingLock)
             {
                 if (this.pendingChunks.Count == 0 && this.deferredPaintRows.Count == 0)
@@ -831,101 +882,101 @@ namespace Terminals.Plugins.SshNet
                     this.renderTimer.Stop();
                     return;
                 }
-
-                while (this.pendingChunks.Count > 0 && charCount < charBudget)
-                {
-                    string chunk = this.pendingChunks.Dequeue();
-                    chunks.Add(chunk);
-                    charCount += chunk != null ? chunk.Length : 0;
-                }
             }
 
-            if (chunks.Count == 0)
+            if (this.HasPendingChunks())
             {
-                if (this.deferredPaintRows.Count > 0)
-                    this.PaintDeferredRows();
+                this.preserveFollowTailOnNextRender = this.followTail || this.IsAtTail();
+                this.vtParseWorker.SignalProcess();
                 return;
             }
 
-            bool wasFollowingTail = this.followTail || this.IsAtTail();
-            bool forceFullRepaint = false;
-            foreach (string chunk in chunks)
-            {
-                if (TerminalRenderPipeline.ChunkRequiresFullRepaint(chunk))
-                    forceFullRepaint = true;
-                this.session.Push(chunk);
-            }
-
-            this.followTail = wasFollowingTail;
-            this.RenderSessionChanges(forceFullRepaint);
+            if (this.deferredPaintRows.Count > 0)
+                this.PaintDeferredRows();
         }
 
         private void RenderSessionChanges(bool forceFullRepaint)
         {
-            if (!this.session.ConsumeChangedFlag() && this.deferredPaintRows.Count == 0)
+            if (!forceFullRepaint && !this.session.ConsumeChangedFlag() && this.deferredPaintRows.Count == 0)
                 return;
 
             if (forceFullRepaint)
                 this.deferredPaintRows.Clear();
 
-            if (this.IsCatchUpMode())
-                forceFullRepaint = true;
-
-            bool alternateScreenActive = this.session.IsAlternateScreenActive;
-            if (alternateScreenActive != this.lastAlternateScreenActive)
+            lock (this.session.SyncRoot)
             {
-                forceFullRepaint = true;
-                this.deferredPaintRows.Clear();
-                this.renderPipeline.InvalidatePreviousGrid();
-                this.renderPipeline.InvalidateRowCache();
-                this.lastAlternateScreenActive = alternateScreenActive;
+                bool alternateScreenActive = this.session.GetAlternateScreenActiveUnderLock();
+                if (alternateScreenActive != this.lastAlternateScreenActive)
+                {
+                    forceFullRepaint = true;
+                    this.deferredPaintRows.Clear();
+                    this.renderPipeline.InvalidatePreviousGrid();
+                    this.renderPipeline.InvalidateRowCache();
+                    this.lastAlternateScreenActive = alternateScreenActive;
+                }
+
+                int viewTopBefore = this.viewTopRow;
+                this.UpdateScrollRange();
+
+                int scrollDeltaRows = alternateScreenActive
+                    ? 0
+                    : this.viewTopRow - viewTopBefore;
+                this.EnsureCellMetrics();
+                this.EnsureFrameCacheBitmap();
+                if (this.frameCache == null)
+                    return;
+
+                IList<int> dirtyRows;
+                bool scrolledBitmap = false;
+                if (forceFullRepaint)
+                {
+                    this.renderPipeline.RebuildFullFrame(
+                        this.frameCache,
+                        this.session.Controller,
+                        this.GetEffectiveViewTopRow(),
+                        this.frameCacheWidth);
+                    dirtyRows = null;
+                }
+                else
+                {
+                    var diffOptions = new TerminalRowDiffOptions { ForceFullRepaint = false };
+                    int renderBudget = this.GetRenderFrameBudget(forceFullRepaint: false);
+                    if (scrollDeltaRows != 0 && !alternateScreenActive)
+                    {
+                        scrolledBitmap = true;
+                        dirtyRows = this.renderPipeline.UpdateFrameWithScroll(
+                            this.frameCache,
+                            this.session.Controller,
+                            this.GetEffectiveViewTopRow(),
+                            this.frameCacheWidth,
+                            this.frameCacheHeight,
+                            diffOptions,
+                            scrollDeltaRows,
+                            renderBudget,
+                            this.deferredPaintRows);
+                        if (dirtyRows == null)
+                            forceFullRepaint = true;
+                    }
+                    else
+                    {
+                        dirtyRows = this.renderPipeline.UpdateFrame(
+                            this.frameCache,
+                            this.session.Controller,
+                            this.GetEffectiveViewTopRow(),
+                            this.frameCacheWidth,
+                            this.frameCacheHeight,
+                            diffOptions,
+                            renderBudget,
+                            this.deferredPaintRows);
+                    }
+                }
+
+                if (scrolledBitmap && !forceFullRepaint && (dirtyRows == null || dirtyRows.Count == 0))
+                    this.Invalidate(this.GetTerminalContentBounds());
+                else
+                    this.InvalidateDirtyRows(dirtyRows, forceFullRepaint);
             }
 
-            int viewTopBefore = this.viewTopRow;
-            this.UpdateScrollRange();
-
-            int scrollDeltaRows = this.session.IsAlternateScreenActive
-                ? 0
-                : this.viewTopRow - viewTopBefore;
-            this.EnsureCellMetrics();
-            this.EnsureFrameCacheBitmap();
-            if (this.frameCache == null)
-                return;
-
-            // Bitmap scroll optimization assumes pure viewport panning. Fast server
-            // output rewrites every row, so repaint the full visible grid instead.
-            if (scrollDeltaRows != 0)
-            {
-                this.deferredPaintRows.Clear();
-                forceFullRepaint = true;
-            }
-
-            IList<int> dirtyRows;
-            if (forceFullRepaint)
-            {
-                this.renderPipeline.RebuildFullFrame(
-                    this.frameCache,
-                    this.session.Controller,
-                    this.GetEffectiveViewTopRow(),
-                    this.frameCacheWidth);
-                dirtyRows = null;
-            }
-            else
-            {
-                var diffOptions = new TerminalRowDiffOptions { ForceFullRepaint = false };
-                int renderBudget = this.GetRenderFrameBudget(forceFullRepaint: false);
-                dirtyRows = this.renderPipeline.UpdateFrame(
-                    this.frameCache,
-                    this.session.Controller,
-                    this.GetEffectiveViewTopRow(),
-                    this.frameCacheWidth,
-                    this.frameCacheHeight,
-                    diffOptions,
-                    renderBudget,
-                    this.deferredPaintRows);
-            }
-
-            this.InvalidateDirtyRows(dirtyRows, forceFullRepaint);
             if (this.hasSelection)
                 this.InvalidateSelectionRegion();
 
@@ -943,15 +994,19 @@ namespace Terminals.Plugins.SshNet
             if (this.frameCache == null || this.deferredPaintRows.Count == 0)
                 return;
 
-            IList<int> paintedRows = this.renderPipeline.PaintDeferredRows(
-                this.frameCache,
-                this.session.Controller,
-                this.GetEffectiveViewTopRow(),
-                this.frameCacheWidth,
-                this.GetRenderFrameBudget(forceFullRepaint: false),
-                this.deferredPaintRows);
+            IList<int> paintedRows;
+            lock (this.session.SyncRoot)
+            {
+                paintedRows = this.renderPipeline.PaintDeferredRows(
+                    this.frameCache,
+                    this.session.Controller,
+                    this.GetEffectiveViewTopRow(),
+                    this.frameCacheWidth,
+                    this.GetRenderFrameBudget(forceFullRepaint: false),
+                    this.deferredPaintRows);
+                this.InvalidateDirtyRows(paintedRows, fullRepaint: false);
+            }
 
-            this.InvalidateDirtyRows(paintedRows, fullRepaint: false);
             if (this.hasSelection)
                 this.InvalidateSelectionRegion();
         }
@@ -999,8 +1054,11 @@ namespace Terminals.Plugins.SshNet
                 this.ApplySessionSize(this.Columns, this.Rows);
 
             this.EnsureFrameCacheBitmap();
-            this.renderPipeline.InvalidatePreviousGrid();
-            this.RebuildFrameCache();
+            lock (this.session.SyncRoot)
+            {
+                this.renderPipeline.InvalidatePreviousGrid();
+                this.RebuildFrameCache();
+            }
             this.Invalidate();
         }
 
@@ -1008,8 +1066,12 @@ namespace Terminals.Plugins.SshNet
         {
             this.localEcho.ResetPendingEcho();
             this.UpdateScrollRange();
-            this.renderPipeline.InvalidatePreviousGrid();
-            this.RebuildFrameCache();
+            lock (this.session.SyncRoot)
+            {
+                this.renderPipeline.InvalidatePreviousGrid();
+                this.RebuildFrameCache();
+            }
+
             this.Invalidate();
         }
 
@@ -1123,10 +1185,7 @@ namespace Terminals.Plugins.SshNet
 
         private void InvalidateDirtyRows(System.Collections.Generic.IList<int> dirtyRows, bool fullRepaint)
         {
-            if (fullRepaint
-                || this.IsCatchUpMode()
-                || dirtyRows == null
-                || dirtyRows.Count == 0)
+            if (fullRepaint || dirtyRows == null || dirtyRows.Count == 0)
             {
                 this.Invalidate(this.GetTerminalContentBounds());
                 return;
@@ -1195,18 +1254,21 @@ namespace Terminals.Plugins.SshNet
             if (this.frameCache == null)
                 return;
 
-            if (!this.renderPipeline.TryScrollFrame(
-                this.frameCache,
-                this.session.Controller,
-                this.GetEffectiveViewTopRow(),
-                scrollDeltaRows,
-                this.frameCacheWidth))
+            lock (this.session.SyncRoot)
             {
-                this.renderPipeline.RebuildFullFrame(
+                if (!this.renderPipeline.TryScrollFrame(
                     this.frameCache,
                     this.session.Controller,
                     this.GetEffectiveViewTopRow(),
-                    this.frameCacheWidth);
+                    scrollDeltaRows,
+                    this.frameCacheWidth))
+                {
+                    this.renderPipeline.RebuildFullFrame(
+                        this.frameCache,
+                        this.session.Controller,
+                        this.GetEffectiveViewTopRow(),
+                        this.frameCacheWidth);
+                }
             }
 
             this.Invalidate(this.GetTerminalContentBounds());
