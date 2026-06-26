@@ -6,7 +6,7 @@ Single place for **planned and completed work** on this Terminals fork. Upstream
 
 **Licensing:** fork-authored code is **GPL-3.0** — see [FORK-AUTHORED.md](FORK-AUTHORED.md) and `SPDX-License-Identifier` headers in source files.
 
-Release notes: [v1.0.0](Docs/RELEASE-v1.0.0-notes.md) · [v1.0.1](Docs/RELEASE-v1.0.1-notes.md) · [v1.0.2](Docs/RELEASE-v1.0.2-notes.md) · [v1.0.3](Docs/RELEASE-v1.0.3-notes.md) · [v1.0.4](Docs/RELEASE-v1.0.4-notes.md) · [v1.0.5](Docs/RELEASE-v1.0.5-notes.md)
+Release notes: [v1.0.0](Docs/RELEASE-v1.0.0-notes.md) · [v1.0.1](Docs/RELEASE-v1.0.1-notes.md) · [v1.0.2](Docs/RELEASE-v1.0.2-notes.md) · [v1.0.3](Docs/RELEASE-v1.0.3-notes.md) · [v1.0.4](Docs/RELEASE-v1.0.4-notes.md) · [v1.0.5](Docs/RELEASE-v1.0.5-notes.md) · [v1.0.6](Docs/RELEASE-v1.0.6-notes.md)
 
 ---
 
@@ -67,6 +67,10 @@ Release notes: [v1.0.0](Docs/RELEASE-v1.0.0-notes.md) · [v1.0.1](Docs/RELEASE-v
 - [x] **Display scaling & zoom** — DPI/viewport-adaptive font; Ctrl+wheel / Ctrl+± / Ctrl+0; Skia-based cell metrics
 - [x] **I/O optimizations** — 16 KB SSH read buffer; 16 KB UI flush chunks; selection overlay uses cached grid
 - [x] Unit tests: `TerminalRowSpanBuilderTests`, `TerminalDisplayScaleTests`, `TerminalFontMetricsTests`; updated `TerminalRenderPipelineTests`, `SshVtSessionTests`
+
+### Done — `v1.0.6`
+
+- [x] **SkiaSharp packaging fix** — ship `SkiaSharp.dll` + `libSkiaSharp` native runtimes in MSI/ZIP (fixes blank SSH terminal in v1.0.5 installs)
 
 ### Planned
 
